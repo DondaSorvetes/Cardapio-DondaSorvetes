@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { DesenvolvidoPor } from "@/components/cliente/perfil/MenuPerfil";
 import "./auth.css";
 
 type AuthError = {
@@ -265,6 +266,7 @@ export function CustomerAuth({ mode }: { mode: "entrar" | "cadastrar" }) {
             Ao continuar, você concorda com os termos de uso e a política de
             privacidade.
           </p>
+          <DesenvolvidoPor />
         </section>
       </div>
     </main>
