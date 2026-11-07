@@ -1,0 +1,65 @@
+{
+  "name": "donda-admin-desktop",
+  "productName": "Sorvetes Donda",
+  "version": "1.2.3",
+  "private": true,
+  "description": "Painel administrativo Sorvetes Donda com impressão direta de cozinha e cliente",
+  "author": "Sorvetes Donda",
+  "main": "main.cjs",
+  "adminOrigin": "",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test.cjs updater.test.cjs",
+    "dist": "electron-builder --win nsis --x64 --publish never",
+    "release": "electron-builder --win nsis --x64 --publish always"
+  },
+  "devDependencies": {
+    "electron": "45.2.0",
+    "electron-builder": "26.18.0"
+  },
+  "build": {
+    "appId": "br.com.sorvetesdonda.admin",
+    "productName": "Sorvetes Donda",
+    "asar": true,
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.cjs",
+      "preload.cjs",
+      "policy.cjs",
+      "updater.cjs",
+      "assets/icon.png",
+      "assets/icon.ico",
+      "package.json"
+    ],
+    "artifactName": "Donda-Setup-${version}.${ext}",
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico",
+      "signAndEditExecutable": true
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Sorvetes Donda",
+      "runAfterFinish": false,
+      "deleteAppDataOnUninstall": false
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "DondaSorvetes",
+        "repo": "Cardapio-DondaSorvetes",
+        "releaseType": "release"
+      }
+    ]
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.11"
+  }
+}

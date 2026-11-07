@@ -1,0 +1,124 @@
+name: App do entregador (Android)
+# Quando a versão em mobile/entregador/app.json muda na main, gera o .apk assinado e
+# publica o release "entregador-vX.Y.Z" (o painel mostra o botão Baixar app).
+#
+# O release NÃO vira o "latest" do repositório: o atualizador do app Windows lê o
+# latest. A chave de assinatura é sempre a mesma (secrets), senão o Android recusa
+# instalar uma versão nova por cima da antiga.
+#
+# Secrets:   ANDROID_ENTREGADOR_KEYSTORE (PKCS#12 em base64),
+#            ANDROID_ENTREGADOR_KEYSTORE_PASSWORD, ANDROID_ENTREGADOR_KEY_ALIAS
+# Variables: EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY (públicas)
+# Tudo isso é criado por scripts/android/criar-chave-entregador.sh.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "mobile/entregador/app.json"
+      - ".github/workflows/entregador-android.yml"
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: entregador-android
+  cancel-in-progress: false
+jobs:
+  apk:
+    if: github.repository == 'DondaSorvetes/Cardapio-DondaSorvetes'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: mobile/entregador
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL }}
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+      KS_B64: ${{ secrets.ANDROID_ENTREGADOR_KEYSTORE }}
+      KS_PASS: ${{ secrets.ANDROID_ENTREGADOR_KEYSTORE_PASSWORD }}
+      KS_ALIAS: ${{ secrets.ANDROID_ENTREGADOR_KEY_ALIAS }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Versão e situação do release
+        id: state
+        run: |
+          version="$(node -p "require('./app.json').expo.version")"
+          tag="entregador-v$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          if assets="$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' 2>/dev/null)"; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            if grep -q '\.apk$' <<< "$assets"; then
+              echo "done=true" >> "$GITHUB_OUTPUT"; echo "Release $tag já tem o .apk; nada a fazer."
+            else
+              echo "done=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"; echo "done=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Conferir configuração
+        if: steps.state.outputs.done == 'false'
+        run: |
+          for name in EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY KS_B64 KS_PASS KS_ALIAS; do
+            if [ -z "${!name}" ]; then echo "::error::$name não configurado (rode scripts/android/criar-chave-entregador.sh)."; exit 1; fi
+          done
+          # O app é distribuído: só pode levar a chave PÚBLICA (anon).
+          case "$EXPO_PUBLIC_SUPABASE_ANON_KEY" in sb_secret_*) echo "::error::Chave secreta no lugar da pública."; exit 1;; esac
+          if [[ "$EXPO_PUBLIC_SUPABASE_ANON_KEY" == *.*.* ]]; then
+            role="$(node -e 'try{console.log(JSON.parse(Buffer.from(process.argv[1].split(".")[1],"base64url")).role)}catch{console.log("")}' "$EXPO_PUBLIC_SUPABASE_ANON_KEY")"
+            if [ "$role" != "anon" ]; then echo "::error::A chave do app precisa ter role anon (veio '$role')."; exit 1; fi
+          fi
+      - uses: actions/setup-node@v4
+        if: steps.state.outputs.done == 'false'
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: mobile/entregador/package-lock.json
+      - uses: actions/setup-java@v4
+        if: steps.state.outputs.done == 'false'
+        with:
+          distribution: temurin
+          java-version: "17"
+      - if: steps.state.outputs.done == 'false'
+        run: npm ci
+      - if: steps.state.outputs.done == 'false'
+        name: Checar tipos
+        run: npx tsc --noEmit
+      - if: steps.state.outputs.done == 'false'
+        name: Gerar projeto Android
+        run: npx expo prebuild --platform android --no-install --clean
+      - if: steps.state.outputs.done == 'false'
+        name: Compilar .apk
+        working-directory: mobile/entregador/android
+        run: ./gradlew assembleRelease --no-daemon
+      - if: steps.state.outputs.done == 'false'
+        name: Assinar com a chave do app
+        run: |
+          set -euo pipefail
+          tools="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          apk="android/app/build/outputs/apk/release/app-release.apk"
+          out="$RUNNER_TEMP/Donda-Entregador-${{ steps.state.outputs.version }}.apk"
+          base64 -d <<< "$KS_B64" > "$RUNNER_TEMP/ks.p12"
+          "$tools/zipalign" -p -f 4 "$apk" "$RUNNER_TEMP/aligned.apk"
+          "$tools/apksigner" sign --ks "$RUNNER_TEMP/ks.p12" --ks-type PKCS12 --ks-pass env:KS_PASS \
+            --ks-key-alias "$KS_ALIAS" --out "$out" "$RUNNER_TEMP/aligned.apk"
+          "$tools/apksigner" verify --print-certs "$out" | grep -i "certificate DN"
+          rm -f "$RUNNER_TEMP/ks.p12" "$RUNNER_TEMP/aligned.apk"
+          echo "APK=$out" >> "$GITHUB_ENV"
+          echo "Gerado: $(basename "$out") ($(du -h "$out" | cut -f1))"
+      - if: steps.state.outputs.done == 'false'
+        name: Publicar release (sem virar o latest)
+        run: |
+          tag="${{ steps.state.outputs.tag }}"
+          if [ "${{ steps.state.outputs.exists }}" = "true" ]; then
+            gh release upload "$tag" "$APK" --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$tag" "$APK" --repo "$GITHUB_REPOSITORY" --latest=false \
+              --title "Donda Entregador ${{ steps.state.outputs.version }}" \
+              --notes "App Android dos entregadores Sorvetes Donda ${{ steps.state.outputs.version }}. Baixe pelo painel em Configurações → Entregadores."
+          fi
+      - name: Limpar chave
+        if: always()
+        run: rm -f "$RUNNER_TEMP/ks.p12"

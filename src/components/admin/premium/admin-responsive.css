@@ -1,0 +1,120 @@
+/* Admin-only foundations. Breakpoints match Tailwind: sm 640, md 768,
+   lg 1024, xl 1280. Portals are scoped through the active admin shell. */
+.admin-shell {
+  --admin-toolbar-height: 3rem;
+  /* Barra de atalhos do celular (MobileBottomNav); 0 a partir de md. */
+  --admin-bottom-nav: 0px;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 767.98px) {
+  .admin-shell { --admin-bottom-nav: calc(4rem + env(safe-area-inset-bottom, 0px)); }
+  .admin-content-area { padding-bottom: var(--admin-bottom-nav); }
+}
+.admin-bottom-nav { padding-bottom: env(safe-area-inset-bottom, 0px); }
+.admin-shell :where(.grid > *) { min-width: 0; }
+.admin-shell :where(input, textarea, select) { max-width: 100%; }
+.admin-shell :where(button, a, input, select, textarea):focus-visible,
+body:has(.admin-shell) :where([role="dialog"], [role="menu"]) :focus-visible {
+  outline: 2px solid #e33e70;
+  outline-offset: 2px;
+}
+.admin-skip-link { position: fixed; left: 1rem; top: -6rem; z-index: 100; padding: .75rem; background: white; color: #c8285f; }
+.admin-skip-link:focus { top: .5rem; }
+.admin-workspace { height: calc(100dvh - var(--admin-toolbar-height) - var(--admin-bottom-nav)); min-height: 0; }
+/* A área de trabalho já desconta a barra: sem padding extra embaixo dela. */
+.admin-content-area:has(.admin-workspace) { padding-bottom: 0; }
+.admin-settings-row { display: flex; flex-direction: column; align-items: stretch; gap: 1rem; }
+.admin-settings-value { width: 100%; min-width: 0; }
+.admin-settings-value > * { max-width: 100%; }
+.admin-settings-content { container-type: inline-size; }
+@container (min-width: 680px) {
+  .admin-settings-row { flex-direction: row; align-items: center; justify-content: space-between; }
+  .admin-settings-row > :first-child { flex: 1; }
+  .admin-settings-value { width: min(50%, 420px); display: flex; justify-content: flex-end; }
+  .admin-settings-value:has(> .field-error) { flex-direction: column; align-items: flex-end; }
+}
+.admin-mobile-menu { height: 100dvh; padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+.admin-mobile-menu > button { z-index: 1; top: max(.125rem, env(safe-area-inset-top)); right: .5rem; }
+body:has(.admin-shell) [role="dialog"],
+body:has(.admin-shell) [role="alertdialog"] { max-width: 100vw; max-height: 100dvh; overscroll-behavior: contain; overflow-wrap: anywhere; }
+body:has(.admin-shell) [role="dialog"]:not(.admin-detail-sheet):not(.admin-mobile-menu):not(.admin-product-sheet):not(.coupon-sheet),
+body:has(.admin-shell) [role="alertdialog"] { overflow-y: auto; }
+body:has(.admin-shell) :is([role="menu"], [data-radix-popper-content-wrapper]) { max-width: calc(100vw - 1rem); }
+body:has(.admin-shell) [data-radix-popper-content-wrapper] > * { max-width: calc(100vw - 1rem); }
+body:has(.admin-shell) [role="menu"] { max-height: var(--radix-dropdown-menu-content-available-height, 80dvh); overflow-y: auto; }
+.admin-detail-sheet { height: 100dvh; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+.admin-detail-sheet > button { display: none; }
+.admin-product-sheet { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+/* Keep the product editor docked right; the generic dialog viewport limit
+   must not override the sheet's desktop width. */
+body:has(.admin-shell) [role="dialog"].admin-product-sheet {
+  width: min(520px, 100vw);
+  max-width: 520px;
+  right: 0;
+  left: auto;
+  overflow: hidden;
+}
+body:has(.admin-shell) .admin-product-sheet > button { top: .25rem; right: .5rem; min-width: 44px; min-height: 44px; display: grid; place-items: center; }
+.admin-detail-sheet [data-radix-scroll-area-viewport] > div { display: block !important; }
+.admin-product-sheet [data-radix-scroll-area-viewport] > div { display: block !important; }
+.admin-shell [data-radix-scroll-area-viewport] > div { display: block !important; }
+/* Radix sets display:table inline; block prevents long text expanding its viewport. */
+.admin-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (min-width: 1024px) { .admin-kpi-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 374px) { .admin-kpi-grid { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 767px) {
+  .admin-shell .admin-workspace { height: auto; min-height: calc(100dvh - var(--admin-toolbar-height)); overflow: visible; }
+  .admin-shell .admin-catalog-body { flex: none; }
+  .admin-shell .admin-products-area { height: auto; }
+  .admin-shell .admin-products-scroll { max-height: 65dvh; }
+  .admin-shell .admin-catalog-categories { height: 16rem; }
+  .admin-shell .admin-kanban-column { display: none; }
+  .admin-shell .admin-kanban-column[data-mobile-active="true"] { display: flex; }
+  .admin-shell .admin-kanban-board { display: block; min-width: 0; height: auto; }
+  .admin-shell .admin-kanban-scroll { overflow: visible; }
+  .admin-shell .admin-kanban-column > div { overflow: visible; }
+  .admin-shell .admin-kanban-column { height: auto; border-right: 0; }
+  .admin-shell :where(input:not([type="checkbox"]):not([type="radio"]), textarea, select),
+  body:has(.admin-shell) [role="dialog"] :where(input, textarea, select) { font-size: 16px; }
+  .admin-shell .admin-client-detail { height: auto; }
+  .admin-shell .admin-client-detail [data-radix-scroll-area-viewport] { overflow: visible !important; }
+  .admin-shell .admin-client-detail [data-radix-scroll-area-scrollbar] { display: none; }
+}
+@media (pointer: coarse), (max-width: 767px) {
+  .admin-shell :where(button:not([role="switch"]):not([role="checkbox"]), a, [role="combobox"]),
+  body:has(.admin-shell) :where([role="dialog"], [role="alertdialog"], [role="menu"]) :where(button:not([role="switch"]):not([role="checkbox"]), [role="menuitem"], [role="combobox"]) {
+    min-height: 44px;
+  }
+  .admin-shell :where(button[aria-label]:not([role="switch"]):not([role="checkbox"])),
+  body:has(.admin-shell) [role="dialog"] button[aria-label] { min-width: 44px; }
+  .admin-shell :where(button, a) { touch-action: manipulation; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-shell *, body:has(.admin-shell) [data-state] { animation-duration: .01ms; transition-duration: .01ms; scroll-behavior: auto; }
+}
+@media print {
+  body:has(.admin-shell) .admin-detail-sheet {
+    position: static;
+    height: auto;
+    max-height: none;
+    width: auto;
+    transform: none;
+    overflow: visible;
+  }
+}
+
+@media (min-width: 1280px) { .admin-shell { --admin-toolbar-height: 0rem; } }
+/* Compact operational controls on mobile; desktop controls stay expanded. */
+.orders-options-summary { align-items:center; gap:8px; color:#716779; font-size:12px; cursor:pointer; list-style:none; padding:4px 0; }
+.orders-options-summary::-webkit-details-marker { display:none; }
+@media(max-width:767px) {
+ .orders-options-summary { display:flex; }
+ .orders-options > div { margin-top:12px; }
+ .orders-options:not([open]) > div { display:none; }
+ .orders-mobile-board { border:0; background:transparent; box-shadow:none; overflow:visible; }
+ .orders-mobile-board .admin-kanban-column { margin-bottom:12px; border:1px solid #f0e2e7; border-radius:10px; overflow:hidden; }
+}
+@media(min-width:768px) { .orders-options > div { display:flex; } }
+
+/* Order details overlay the board without changing its columns. */
+body:has(.admin-shell) [role="dialog"].admin-detail-sheet { width: min(480px, 100vw); max-width: 480px; right: 0; left: auto; overflow: hidden; box-shadow: -4px 0 20px rgb(0 0 0 / .06); }

@@ -1,0 +1,44 @@
+# Dependencies
+node_modules
+
+# Next.js
+.next
+out
+
+# Build
+dist
+.responsive-test/
+
+# Env files — NUNCA commitar credenciais
+.env
+.env.*
+
+# Logs
+*.log
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+
+# Supabase
+supabase/.temp
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.sw?
+
+# Local AI tools and temporary audit outputs
+.agents/
+.codex/
+AGENTS.md
+.vercel/
+coverage/
+
+# Backups do banco e chave de criptografia (nunca versionar: o repositório é público)
+backup-key.txt
+*.key
+donda-*.tar.gz
+donda-*.tar.gz.enc
+donda-*.zip

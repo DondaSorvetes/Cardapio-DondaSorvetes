@@ -1,0 +1,1 @@
+export { SistemaConfigManager } from "./SistemaConfigManager";

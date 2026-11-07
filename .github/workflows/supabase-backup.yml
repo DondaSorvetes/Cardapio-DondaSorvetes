@@ -1,0 +1,92 @@
+name: Backup diário do banco (Supabase)
+# Todo dia às 23:30 de Brasília (02:30 UTC) gera um dump completo do Postgres do
+# Supabase (roles, schema e dados) e guarda como artifact desta execução por 90 dias.
+#
+# O repositório é público e qualquer conta do GitHub pode baixar artifacts: por isso
+# o backup é CRIPTOGRAFADO (AES-256-GCM, scripts/backup/backup-crypto.cjs) antes de
+# sair do runner, e o arquivo sem criptografia nunca é enviado nem impresso no log.
+# O painel (Configurações → Backup) baixa o artifact e descriptografa no servidor.
+#
+# Secrets necessários (Settings → Secrets and variables → Actions):
+#   SUPABASE_DB_URL        Connection string do "Session pooler" (IPv4), com senha
+#   BACKUP_ENCRYPTION_KEY  Chave de 32 bytes em base64 (backup-crypto.cjs keygen).
+#                          A mesma chave fica na Vercel. Sem ela os backups não abrem.
+on:
+  schedule:
+    - cron: "30 2 * * *"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: supabase-backup
+  cancel-in-progress: false
+jobs:
+  backup:
+    if: github.repository == 'DondaSorvetes/Cardapio-DondaSorvetes' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
+    steps:
+      - name: Conferir secrets
+        run: |
+          for name in SUPABASE_DB_URL BACKUP_ENCRYPTION_KEY; do
+            if [ -z "${!name}" ]; then echo "::error::Secret $name não configurado."; exit 1; fi
+          done
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/backup
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Gerar dump
+        run: |
+          set -euo pipefail
+          stamp="$(TZ=America/Sao_Paulo date +%Y-%m-%d_%H%M)"
+          dir="donda-$stamp"
+          mkdir -p "$RUNNER_TEMP/$dir"
+          cd "$RUNNER_TEMP/$dir"
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f roles.sql --role-only
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f schema.sql
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f data.sql --use-copy --data-only
+          cat > RESTAURAR.txt <<'TXT'
+          Backup Sorvetes Donda (Supabase / Postgres)
+
+          Para restaurar em um banco vazio (ex.: novo projeto Supabase), use a connection string dele:
+            psql "$NOVO_DB_URL" --single-transaction --variable ON_ERROR_STOP=1 \
+              --file roles.sql --file schema.sql \
+              --command 'SET session_replication_role = replica' --file data.sql
+
+          Os arquivos do Storage (imagens) não fazem parte deste backup.
+          TXT
+          for f in roles.sql schema.sql data.sql; do test -s "$f" || { echo "::error::$f vazio"; exit 1; }; done
+          cd "$RUNNER_TEMP"
+          tar -czf "$dir.tar.gz" "$dir"
+          echo "STAMP=$stamp" >> "$GITHUB_ENV"
+          echo "Backup gerado: $dir.tar.gz ($(du -h "$dir.tar.gz" | cut -f1))"
+      - name: Criptografar e conferir
+        run: |
+          set -euo pipefail
+          plain="$RUNNER_TEMP/donda-$STAMP.tar.gz"
+          mkdir -p "$RUNNER_TEMP/upload"
+          enc="$RUNNER_TEMP/upload/donda-$STAMP.tar.gz.enc"
+          node scripts/backup/backup-crypto.cjs encrypt "$plain" "$enc"
+          # Prova que o arquivo enviado abre com a chave antes de apagar o original.
+          node scripts/backup/backup-crypto.cjs decrypt "$enc" "$RUNNER_TEMP/check.tar.gz"
+          cmp "$plain" "$RUNNER_TEMP/check.tar.gz"
+          tar -tzf "$RUNNER_TEMP/check.tar.gz" > /dev/null
+          rm -rf "$plain" "$RUNNER_TEMP/check.tar.gz" "$RUNNER_TEMP/donda-$STAMP"
+          echo "Criptografado: $(du -h "$enc" | cut -f1)"
+      - name: Guardar no GitHub (criptografado)
+        uses: actions/upload-artifact@v4
+        with:
+          name: donda-${{ env.STAMP }}
+          path: ${{ runner.temp }}/upload/donda-${{ env.STAMP }}.tar.gz.enc
+          retention-days: 90
+          compression-level: 0
+          if-no-files-found: error
+      - name: Limpar arquivos locais
+        if: always()
+        run: rm -rf "$RUNNER_TEMP"/donda-* "$RUNNER_TEMP"/upload "$RUNNER_TEMP"/check.tar.gz

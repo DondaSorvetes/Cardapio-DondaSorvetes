@@ -1,0 +1,40 @@
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs');
+const {PGlite}=require('@electric-sql/pglite');
+test('PostgreSQL policies isolate anonymous/nonstaff users and preserve staff reads; rollback restores the snapshot',async()=>{
+ const db=new PGlite();
+ const A='00000000-0000-4000-8000-000000000001',B='00000000-0000-4000-8000-000000000002',ATT='00000000-0000-4000-8000-000000000003',MAN='00000000-0000-4000-8000-000000000004',ADMIN='00000000-0000-4000-8000-000000000005';
+ try{
+ await db.exec(`CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role BYPASSRLS;
+ CREATE SCHEMA auth; GRANT USAGE ON SCHEMA auth TO anon,authenticated,service_role;
+ CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT NULLIF(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
+ CREATE TABLE public.perfis(id uuid PRIMARY KEY,role text,permissoes text[],acessos text[]); ALTER TABLE public.perfis ENABLE ROW LEVEL SECURITY;
+ CREATE POLICY perfis_own ON public.perfis FOR SELECT TO authenticated USING(id=auth.uid());
+ CREATE TABLE public.clientes(id uuid PRIMARY KEY,nome text);
+ CREATE TABLE public.pedidos(id serial PRIMARY KEY,cliente_id uuid NOT NULL,total numeric);
+ CREATE TABLE public.audit_logs(id serial PRIMARY KEY,action text);
+ GRANT ALL ON ALL TABLES IN SCHEMA public TO anon,authenticated,service_role;
+ GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO anon,authenticated,service_role;
+ INSERT INTO perfis VALUES ('${ATT}','atendente',NULL,NULL),('${MAN}','gerente',NULL,NULL),('${ADMIN}','admin',NULL,NULL);
+ INSERT INTO clientes VALUES ('${A}','A'),('${B}','B');INSERT INTO pedidos(cliente_id,total) VALUES ('${A}',20),('${B}',30);INSERT INTO audit_logs(action) VALUES ('synthetic');
+ ALTER TABLE clientes ENABLE ROW LEVEL SECURITY;ALTER TABLE pedidos ENABLE ROW LEVEL SECURITY;ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
+ CREATE POLICY pedidos_select_authenticated ON pedidos FOR SELECT TO authenticated USING(true);
+ CREATE POLICY pedidos_insert_authenticated ON pedidos FOR INSERT TO authenticated WITH CHECK(true);
+ CREATE POLICY pedidos_update_authenticated ON pedidos FOR UPDATE TO authenticated USING(true) WITH CHECK(true);
+ CREATE POLICY clientes_select_authenticated ON clientes FOR SELECT TO authenticated USING(true);
+ CREATE POLICY audit_logs_select_authenticated ON audit_logs FOR SELECT TO authenticated USING(true);`);
+ await db.exec(fs.readFileSync('supabase/migrations/0016_checkout_session_controls.sql','utf8'));
+ await db.exec(fs.readFileSync('supabase/migrations/0017_staff_scoped_rls.sql','utf8'));
+ const identity=async(role,id='')=>{await db.exec('RESET ROLE');await db.query("SELECT set_config('request.jwt.claim.sub',$1,false)",[id]);await db.exec('SET ROLE '+role);};
+ await identity('anon');for(const table of ['clientes','pedidos','audit_logs'])assert.equal((await db.query('SELECT * FROM '+table)).rows.length,0);
+ await identity('authenticated',A);assert.equal((await db.query('SELECT * FROM clientes')).rows.length,1);assert.equal((await db.query('SELECT * FROM pedidos')).rows.length,0);assert.equal((await db.query('SELECT * FROM audit_logs')).rows.length,0);
+ await assert.rejects(()=>db.query('INSERT INTO pedidos(cliente_id,total) VALUES ($1,1)',[B]),/row-level security/);
+ await db.exec("UPDATE perfis SET role='admin' WHERE id='"+ATT+"'");assert.equal((await db.query('SELECT * FROM perfis')).rows.length,0);
+ await identity('authenticated',ATT);assert.equal((await db.query('SELECT * FROM pedidos')).rows.length,2);assert.equal((await db.query('SELECT * FROM clientes')).rows.length,0);await db.exec('UPDATE pedidos SET total=1');await db.exec('DELETE FROM pedidos');await db.exec("UPDATE clientes SET nome='forjado'");
+ await identity('authenticated',MAN);assert.equal((await db.query('SELECT * FROM clientes')).rows.length,2);assert.equal((await db.query('SELECT * FROM audit_logs')).rows.length,0);
+ await identity('authenticated',ADMIN);assert.equal((await db.query('SELECT * FROM audit_logs')).rows.length,1);
+ await identity('service_role');assert.equal((await db.query('SELECT nome FROM clientes ORDER BY id')).rows[0].nome,'A');assert.equal((await db.query("SELECT role FROM perfis WHERE id='"+ATT+"'")).rows[0].role,'atendente');assert.equal((await db.query('SELECT total FROM pedidos ORDER BY id')).rows[0].total,'20');
+ await db.query('INSERT INTO pedidos(cliente_id,total,idempotency_key,idempotency_hash) VALUES ($1,20,$2,$3)',[A,'synthetic-key','hash']);await assert.rejects(()=>db.query('INSERT INTO pedidos(cliente_id,total,idempotency_key,idempotency_hash) VALUES ($1,20,$2,$3)',[A,'synthetic-key','hash']),/duplicate key/);await db.query('INSERT INTO pedidos(cliente_id,total,idempotency_key,idempotency_hash) VALUES ($1,20,$2,$3)',[B,'synthetic-key','hash']);
+ await db.exec('RESET ROLE');await db.exec(fs.readFileSync('supabase/rollbacks/0017_staff_scoped_rls.sql','utf8'));
+ await identity('authenticated',A);assert.equal((await db.query('SELECT * FROM clientes')).rows.length,2,'rollback restores the exact permissive baseline');
+ }finally{await db.close()}
+});

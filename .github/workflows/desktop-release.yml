@@ -1,0 +1,71 @@
+name: Publicar atualização do app Windows
+# Quando a versão em desktop/package.json muda na main, gera o instalador e publica
+# o Release "vX.Y.Z" com instalador, blockmap e latest.yml (lido pelo app instalado).
+# Os arquivos são gerados primeiro e enviados juntos pelo gh, evitando releases
+# incompletos; um release existente sem latest.yml é completado.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "desktop/package.json"
+      - ".github/workflows/desktop-release.yml"
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: desktop-release
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: desktop
+        shell: bash
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - name: Versão e situação do release
+        id: state
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          tag="v$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          if assets="$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' 2>/dev/null)"; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            if grep -qx "latest.yml" <<< "$assets"; then
+              echo "complete=true" >> "$GITHUB_OUTPUT"
+              echo "Release $tag já está completo; nada a publicar."
+            else
+              echo "complete=false" >> "$GITHUB_OUTPUT"
+              echo "Release $tag existe sem latest.yml; será completado."
+            fi
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "complete=false" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.state.outputs.complete == 'false'
+        run: npm ci
+      - if: steps.state.outputs.complete == 'false'
+        run: npm test
+      - if: steps.state.outputs.complete == 'false'
+        name: Gerar instalador
+        run: npm run dist
+      - if: steps.state.outputs.complete == 'false'
+        name: Publicar arquivos
+        run: |
+          tag="${{ steps.state.outputs.tag }}"
+          files=("dist/Donda-Setup-${{ steps.state.outputs.version }}.exe" "dist/Donda-Setup-${{ steps.state.outputs.version }}.exe.blockmap" "dist/latest.yml")
+          for f in "${files[@]}"; do test -f "$f" || { echo "Arquivo ausente: $f"; exit 1; }; done
+          if [ "${{ steps.state.outputs.exists }}" = "true" ]; then
+            gh release upload "$tag" "${files[@]}" --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$tag" "${files[@]}" --repo "$GITHUB_REPOSITORY" --title "Sorvetes Donda $tag" --notes "Atualização do aplicativo Windows Sorvetes Donda ${{ steps.state.outputs.version }}." --latest
+          fi
