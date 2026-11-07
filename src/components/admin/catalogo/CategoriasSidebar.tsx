@@ -24,7 +24,6 @@ import {
   GripVertical,
   Pencil,
   Copy,
-  EyeOff,
   Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -199,10 +198,6 @@ function CategoriaItemInner({
             <Copy className="w-3.5 h-3.5 mr-2" />
             Duplicar
           </DropdownMenuItem>
-          <DropdownMenuItem disabled>
-            <EyeOff className="w-3.5 h-3.5 mr-2" />
-            Ocultar
-          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onClick={onDelete}
@@ -313,14 +308,12 @@ export function CategoriasSidebar({
   return (
     <aside className="catalog-categories-panel flex w-full flex-col">
       <div className="catalog-categories-head">
-        <h2>
-          Categorias <span className="catalog-count">{categorias.length}</span>
-        </h2>
+        <h2>Categorias</h2>
         <Button
           type="button"
           size="icon"
           variant="ghost"
-          className="h-8 w-8 rounded-lg text-[#655D6E] hover:bg-[#F2ECFA] hover:text-[#C8285F]"
+          className="h-7 w-7 rounded-md text-[#9A93A3] hover:bg-[#F2ECFA] hover:text-[#C8285F]"
           onClick={() => {
             setCreating(true);
             setNewName("");
@@ -341,7 +334,6 @@ export function CategoriasSidebar({
           <span className="truncate">Todos os produtos</span>
           <span className="catalog-count">{produtos.length}</span>
         </button>
-        <div className="catalog-categories-divider" role="presentation" />
 
         {creating && (
           <div className="flex gap-1 p-1">

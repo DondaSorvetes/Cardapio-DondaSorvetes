@@ -17,13 +17,11 @@ const PRIMARY: Partial<Record<CatalogTab, string>> = {
 
 export function CatalogoHeader({
   activeTab,
-  summary,
   onPrimary,
   onImport,
   onExport,
 }: {
   activeTab: CatalogTab;
-  summary?: string;
   onPrimary: () => void;
   onImport?: () => void;
   onExport?: () => void;
@@ -31,10 +29,7 @@ export function CatalogoHeader({
   const primary = PRIMARY[activeTab];
   return (
     <header className="catalog-heading">
-      <div className="min-w-0">
-        <h1>Catálogo</h1>
-        {summary ? <p className="catalog-heading-summary">{summary}</p> : null}
-      </div>
+      <h1>Catálogo</h1>
       <div className="catalog-heading-actions">
         {activeTab === "produtos" && (
           <DropdownMenu>
@@ -50,9 +45,12 @@ export function CatalogoHeader({
           </DropdownMenu>
         )}
         {primary && (
-          <button type="button" onClick={onPrimary} className="catalog-primary-action">
+          <button type="button" onClick={onPrimary} className="catalog-primary-action" aria-label={primary}>
             <Plus size={16} aria-hidden="true" />
-            {primary}
+            <span className="catalog-primary-label">{primary}</span>
+            <span className="catalog-primary-label-short" aria-hidden="true">
+              Novo
+            </span>
           </button>
         )}
       </div>
