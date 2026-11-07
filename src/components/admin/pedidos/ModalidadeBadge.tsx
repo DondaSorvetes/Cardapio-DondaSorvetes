@@ -1,4 +1,3 @@
-import { CalendarClock, Store, Truck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatarAgendamento } from "@/lib/retirada";
 import { isPickupType } from "./order-status";
@@ -20,14 +19,12 @@ export function ModalidadeBadge({
 }) {
   const base =
     size === "md"
-      ? "gap-1.5 rounded-md px-2.5 py-1 text-[12px]"
-      : "gap-1 rounded px-1.5 py-0.5 text-[10px]";
-  const icon = size === "md" ? "h-3.5 w-3.5" : "h-3 w-3";
+      ? "rounded-md px-2 py-0.5 text-[12px]"
+      : "rounded px-1.5 py-0.5 text-[10px]";
 
   if (!isPickupType(tipo)) {
     return (
       <span className={cn("inline-flex items-center font-medium bg-[#F3F4F6] text-[#4B5563]", base, className)}>
-        <Truck aria-hidden="true" className={icon} />
         Entrega
       </span>
     );
@@ -36,17 +33,15 @@ export function ModalidadeBadge({
   const agendamento = formatarAgendamento(agendadoPara);
   if (agendamento) {
     return (
-      <span className={cn("inline-flex items-center font-semibold border border-amber-300 bg-amber-50 text-amber-800", base, className)}>
-        <CalendarClock aria-hidden="true" className={icon} />
+      <span className={cn("inline-flex items-center font-medium bg-amber-50 text-amber-800", base, className)}>
         Retirada agendada · {agendamento}
       </span>
     );
   }
 
   return (
-    <span className={cn("inline-flex items-center font-semibold border border-violet-200 bg-violet-50 text-violet-700", base, className)}>
-      <Store aria-hidden="true" className={icon} />
-      Retirar agora
+    <span className={cn("inline-flex items-center font-medium bg-[#F3F4F6] text-[#4B5563]", base, className)}>
+      Retirada
     </span>
   );
 }

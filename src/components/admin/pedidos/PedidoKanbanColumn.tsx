@@ -6,6 +6,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import type { Pedido } from "@/types/pedido";
+import { ChevronsRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PedidoKanbanCard } from "./PedidoKanbanCard";
 import type { KanbanColumnDef } from "./kanban-columns";
@@ -25,6 +26,9 @@ interface PedidoKanbanColumnProps {
   /** Layout vertical (lista empilhada) vs coluna Kanban */
   vertical?: boolean;
   mobileActive?: boolean;
+  /** Coluna recolhida (faixa estreita); clique para abrir. */
+  collapsed?: boolean;
+  onToggleCollapsed?: () => void;
 }
 
 export function PedidoKanbanColumn({
@@ -37,6 +41,8 @@ export function PedidoKanbanColumn({
   busy,
   vertical = true,
   mobileActive = false,
+  collapsed = false,
+  onToggleCollapsed,
 }: PedidoKanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: `col-${column.id}`,
@@ -94,12 +100,43 @@ export function PedidoKanbanColumn({
     );
   }
 
-  // Fallback coluna (não usado no layout atual)
+  // Recolhida: faixa estreita à direita. Continua aceitando cards arrastados.
+  if (collapsed) {
+    return (
+      <section
+        ref={setNodeRef}
+        // No celular a coluna recolhida some; aparece ao escolher "Concluídos" no seletor.
+        data-mobile-active={false}
+        className={cn(
+          "admin-kanban-column flex h-full w-12 shrink-0 flex-col items-center border-l border-[#F0E2E7] bg-[#FBFAFC]",
+          isOver && "bg-[#FDE6EE]/40 ring-1 ring-inset ring-[#C8285F]/40",
+        )}
+      >
+        <button
+          type="button"
+          onClick={onToggleCollapsed}
+          aria-expanded={false}
+          aria-label={`Mostrar ${column.label} (${pedidos.length})`}
+          title={`Mostrar ${column.label}`}
+          className="flex h-full w-full flex-col items-center gap-3 py-3 text-[#675B70] transition-colors hover:bg-[#F4F1F7] hover:text-[#2A2033] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#C8285F]"
+        >
+          <span className="flex h-5 min-w-[1.5rem] items-center justify-center rounded-full bg-white px-1.5 text-[11px] font-semibold tabular-nums">
+            {pedidos.length}
+          </span>
+          <span className="text-[13px] font-semibold [writing-mode:vertical-rl]">
+            {column.label}
+          </span>
+        </button>
+      </section>
+    );
+  }
+
+  // Coluna do quadro
   return (
     <section
       data-mobile-active={mobileActive}
       className={cn(
-        "admin-kanban-column flex flex-col min-w-0 h-full border-r border-[#F0E2E7] bg-[#FBFAFC] last:border-r-0",
+        "admin-kanban-column flex flex-1 flex-col min-w-[240px] h-full border-r border-[#F0E2E7] bg-[#FBFAFC] last:border-r-0",
         isOver && "ring-1 ring-[#C8285F]/40 bg-[#FDE6EE]/30",
       )}
     >
@@ -112,9 +149,23 @@ export function PedidoKanbanColumn({
             {column.label}
           </h3>
         </div>
-        <span className="text-[11px] font-semibold tabular-nums text-[#675B70] bg-white min-w-[1.5rem] h-5 px-1.5 rounded-full flex items-center justify-center">
-          {pedidos.length}
-        </span>
+        <div className="flex items-center gap-1">
+          <span className="text-[11px] font-semibold tabular-nums text-[#675B70] bg-white min-w-[1.5rem] h-5 px-1.5 rounded-full flex items-center justify-center">
+            {pedidos.length}
+          </span>
+          {onToggleCollapsed && (
+            <button
+              type="button"
+              onClick={onToggleCollapsed}
+              aria-expanded={true}
+              aria-label={`Ocultar ${column.label}`}
+              title={`Ocultar ${column.label}`}
+              className="hidden h-6 w-6 items-center justify-center rounded text-[#9A929F] hover:bg-white hover:text-[#2A2033] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8285F] md:inline-flex"
+            >
+              <ChevronsRight aria-hidden="true" className="h-4 w-4" />
+            </button>
+          )}
+        </div>
       </header>
       <div
         ref={setNodeRef}

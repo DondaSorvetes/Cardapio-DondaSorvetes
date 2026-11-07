@@ -11,6 +11,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
+import { X } from "lucide-react";
 import type { Pedido } from "@/types/pedido";
 import { formatEndereco } from "@/lib/utils/formatters";
 import { createClient } from "@/lib/supabase/client";
@@ -58,6 +59,8 @@ import { shortOrderId } from "./order-status";
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 
 export const SOUND_KEY = "donda-orders-sound";
+const CONCLUIDOS_KEY = "donda-orders-concluidos-abertos";
+const AVISO_ENTREGADOR_KEY = "donda-orders-aviso-entregador-fechado";
 
 interface PedidosManagerProps {
   pedidosIniciais: PedidoRow[];
@@ -120,6 +123,24 @@ export function PedidosManager({
     if (pedidoId) setSelectedId(pedidoId);
   }, []);
   const [mobileColumn, setMobileColumn] = useState<KanbanColumnId | "todos">("todos");
+  // "Concluídos" começa recolhida à direita; a escolha fica salva neste navegador.
+  const [concluidosAbertos, setConcluidosAbertos] = useState(false);
+  useEffect(() => {
+    try { setConcluidosAbertos(localStorage.getItem(CONCLUIDOS_KEY) === "1"); } catch { /* preferência opcional */ }
+  }, []);
+  const toggleConcluidos = () => setConcluidosAbertos((aberto) => {
+    try { localStorage.setItem(CONCLUIDOS_KEY, aberto ? "0" : "1"); } catch { /* preferência opcional */ }
+    return !aberto;
+  });
+  // Aviso "Nenhum entregador selecionado": fechado vale até fechar o navegador.
+  const [avisoEntregadorFechado, setAvisoEntregadorFechado] = useState(false);
+  useEffect(() => {
+    try { setAvisoEntregadorFechado(sessionStorage.getItem(AVISO_ENTREGADOR_KEY) === "1"); } catch { /* opcional */ }
+  }, []);
+  const fecharAvisoEntregador = () => {
+    setAvisoEntregadorFechado(true);
+    try { sessionStorage.setItem(AVISO_ENTREGADOR_KEY, "1"); } catch { /* opcional */ }
+  };
   // Entregador selecionado e nomes (para o aviso e os detalhes). Sem a migration 0019
   // ou sem permissão, fica null e nada aparece.
   const [entregadores, setEntregadores] = useState<EntregadoresResumo | null>(null);
@@ -488,8 +509,9 @@ export function PedidosManager({
         totalCount={filtered.length}
       />
 
-      {entregadores && !entregadores.selecionado && (
-        <p className="flex flex-wrap items-center gap-x-2 border-b border-[#F1E7C8] bg-[#FFFBEB] px-4 py-1.5 text-xs text-[#92400E]">
+      {entregadores && !entregadores.selecionado && !avisoEntregadorFechado && (
+        <div role="status" className="flex items-center gap-2 border-b border-[#F1E7C8] bg-[#FFFBEB] py-1.5 pl-4 pr-2 text-xs text-[#92400E]">
+        <p className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2">
           <span className="h-1.5 w-1.5 rounded-full bg-amber-500" aria-hidden="true" />
           Nenhum entregador selecionado: pedidos que saírem para entrega ficarão sem entregador.
           {canManageStore && (
@@ -498,6 +520,15 @@ export function PedidosManager({
             </Link>
           )}
         </p>
+          <button
+            type="button"
+            onClick={fecharAvisoEntregador}
+            aria-label="Fechar aviso"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-[#92400E]/70 hover:bg-[#FDF0C8] hover:text-[#92400E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+          >
+            <X aria-hidden="true" className="h-3.5 w-3.5" />
+          </button>
+        </div>
       )}
 
       <div className="relative flex-1 min-h-0 min-w-0 bg-[#F7F6F9]">
@@ -512,7 +543,7 @@ export function PedidosManager({
           onDragEnd={(e) => void handleDragEnd(e)}
         >
           <div className="admin-kanban-scroll h-full overflow-x-auto overflow-y-hidden p-3 sm:p-4">
-            <div className="admin-kanban-board orders-mobile-board grid h-full min-w-[1120px] grid-cols-4 overflow-hidden rounded-xl border border-[#F0E2E7] bg-white shadow-sm">
+            <div className={`admin-kanban-board orders-mobile-board flex h-full overflow-hidden rounded-xl border border-[#F0E2E7] bg-white shadow-sm ${concluidosAbertos ? "min-w-[1240px]" : "min-w-[1000px]"}`}>
               {KANBAN_COLUMNS.map((col) => (
                 <PedidoKanbanColumn
                   key={col.id}
@@ -525,6 +556,8 @@ export function PedidosManager({
                   busy={statusBusy}
                   vertical={false}
                   mobileActive={mobileColumn === col.id || (mobileColumn === "todos" && byColumn[col.id].length > 0)}
+                  collapsed={col.id === "finalizados" && !concluidosAbertos && mobileColumn !== "finalizados"}
+                  onToggleCollapsed={col.id === "finalizados" ? toggleConcluidos : undefined}
                 />
               ))}
             </div>

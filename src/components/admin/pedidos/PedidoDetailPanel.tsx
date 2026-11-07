@@ -5,16 +5,10 @@ import { useEffect, useState } from "react";
 import { StorageImage as Image } from "@/components/ui/storage-image";
 import {
   MapPin,
-  Package,
   ExternalLink,
   Copy,
   Printer,
   X,
-  Check,
-  Bike,
-  ChefHat,
-  Flag,
-  XCircle,
   MessageSquare,
 } from "lucide-react";
 import type { Pedido } from "@/types/pedido";
@@ -61,16 +55,6 @@ interface PedidoDetailPanelProps {
   /** Nome do entregador atribuído (null = sem entregador). */
   entregadorNome?: string | null;
 }
-
-const actionIcons = {
-  check: Check,
-  x: XCircle,
-  chef: ChefHat,
-  bike: Bike,
-  flag: Flag,
-  package: Package,
-  print: Printer,
-};
 
 const orderDateTime = new Intl.DateTimeFormat("pt-BR", {
   hour: "2-digit",
@@ -485,7 +469,6 @@ export function PedidoDetailPanel({
         <footer className="shrink-0 border-t border-border bg-white px-4 py-3 sm:px-5">
           <div className="flex items-center gap-2">
             {primaryActions.slice(0, 1).map((action) => {
-              const Icon = actionIcons[action.icon];
               return (
                 <button
                   key={action.label}
@@ -496,7 +479,6 @@ export function PedidoDetailPanel({
                   }}
                   className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-50"
                 >
-                  <Icon aria-hidden="true" size={16} />
                   {action.label}
                 </button>
               );
