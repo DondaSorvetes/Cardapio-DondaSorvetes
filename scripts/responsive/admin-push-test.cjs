@@ -183,3 +183,44 @@ test("chaves VAPID lidas em tempo de execução: aceita colagem com aspas/espaç
   ]);
   for (const problem of trocadas.problems) assert.ok(!problem.includes(publicKey) && !problem.includes(privateKey), "nunca expõe valores");
 });
+
+test("erros do navegador ao ativar viram mensagens em português com o que fazer", () => {
+  const { subscribeErrorMessage } = load("src/lib/pwa/push.ts", { "./install": {} });
+  const abort = Object.assign(new Error("Registration failed - push service error"), { name: "AbortError" });
+  assert.match(subscribeErrorMessage(abort), /Brave.*brave:\/\/settings\/privacy/s);
+  assert.match(subscribeErrorMessage(new Error("Registration failed - push service error")), /serviço de notificações/);
+  assert.equal(subscribeErrorMessage(Object.assign(new Error("x"), { name: "NotAllowedError" })), "PERMISSION_DENIED");
+  assert.match(subscribeErrorMessage(Object.assign(new Error("x"), { name: "InvalidAccessError" })), /NEXT_PUBLIC_VAPID_PUBLIC_KEY/);
+});
+
+test("inscrição antiga com outra chave é refeita; 'push service error' tenta de novo uma vez", async () => {
+  const push2 = load("src/lib/pwa/push.ts", { "./install": {} });
+  const { publicKey } = require("web-push").generateVAPIDKeys();
+  const outraChave = new Uint8Array(65).fill(7).buffer;
+  const calls = [];
+  let existing = { options: { applicationServerKey: outraChave }, unsubscribe: async () => (calls.push("unsubscribe"), (existing = null), true) };
+  let falhas = 1;
+  const fresh = { endpoint: "https://fcm.googleapis.com/novo" };
+  const registration = {
+    active: {},
+    pushManager: {
+      getSubscription: async () => existing,
+      subscribe: async (opts) => {
+        calls.push("subscribe");
+        assert.equal(opts.userVisibleOnly, true);
+        if (falhas-- > 0) throw Object.assign(new Error("Registration failed - push service error"), { name: "AbortError" });
+        return fresh;
+      },
+    },
+  };
+  const navDesc = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+  Object.defineProperty(globalThis, "navigator", { value: { serviceWorker: { getRegistration: async () => registration, ready: Promise.resolve(registration) } }, configurable: true, writable: true });
+  global.Notification = { requestPermission: async () => "granted" };
+  try {
+    assert.equal(await push2.subscribeDevice(publicKey), fresh);
+    assert.deepEqual(calls, ["unsubscribe", "subscribe", "subscribe"]);
+  } finally {
+    if (navDesc) Object.defineProperty(globalThis, "navigator", navDesc); else delete globalThis.navigator;
+    delete global.Notification;
+  }
+});
