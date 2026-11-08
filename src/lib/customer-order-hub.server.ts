@@ -1,6 +1,9 @@
 import "server-only";
 import { createHash } from "node:crypto";
-import { createServiceRoleClient } from "@/integrations/supabase/client.server";
+import {
+  createDedicatedServiceRoleClient,
+  type createServiceRoleClient,
+} from "@/integrations/supabase/client.server";
 type DB = ReturnType<typeof createServiceRoleClient>;
 export type OrderChange = { ids: string[]; version: string };
 export type OrderSubscriber = {
@@ -183,6 +186,6 @@ const globalHub = globalThis as typeof globalThis & {
 };
 export function getOrderEventHub() {
   return (globalHub.__dondaOrderEventHubV1 ??= createOrderEventHub(
-    createServiceRoleClient,
+    createDedicatedServiceRoleClient,
   ));
 }
