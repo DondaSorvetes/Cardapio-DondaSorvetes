@@ -269,13 +269,6 @@ export function PremiumSidebar({
             "h-14",
           )}
         >
-          {!collapsed && (
-            <div className="flex h-full items-center px-5 pr-12">
-              <p className="truncate text-[15px] font-bold tracking-tight text-[#111827]">
-                Sorvetes Donda<span className="ml-1.5 text-xs font-medium text-[#9CA3AF]">Admin</span>
-              </p>
-            </div>
-          )}
           {onToggleCollapsed && (
             <Tooltip>
               <TooltipTrigger asChild>
