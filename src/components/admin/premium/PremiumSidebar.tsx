@@ -235,6 +235,24 @@ export function PremiumSidebar({
   const displayName = adminName || adminEmail || "Usuário";
   const initial = (displayName.charAt(0) || "U").toUpperCase();
 
+  if (mobile) {
+    return (
+      <MobileMenu
+        displayName={displayName}
+        initial={initial}
+        roleName={roleName}
+        adminEmail={adminEmail}
+        mainItems={mainItems}
+        configItems={configItems}
+        pathname={pathname ?? ""}
+        canManageStore={canManageStore}
+        canOpenConfig={canOpenConfig}
+        onNavigate={onNavigate}
+        onLogout={() => void handleLogout()}
+      />
+    );
+  }
+
   return (
     <TooltipProvider delayDuration={200}>
       <aside
@@ -396,5 +414,134 @@ export function PremiumSidebar({
         </div>
       </aside>
     </TooltipProvider>
+  );
+}
+
+/* ───────────── Menu do celular (abre pelo "Menu" da barra inferior) ───────────── */
+
+function MobileMenuLink({
+  item,
+  active,
+}: {
+  item: MenuItem;
+  active: boolean;
+}) {
+  const Icon = item.icon;
+  return (
+    <Link
+      href={item.href}
+      prefetch={false}
+      scroll={false}
+      aria-current={active ? "page" : undefined}
+      className={cn(
+        "flex min-h-12 items-center gap-3 rounded-xl px-2 text-[15px] transition-colors",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8285F]/40",
+        active
+          ? "bg-[#FDF0F4] font-semibold text-[#C8285F]"
+          : "font-medium text-[#1F1A26] active:bg-[#F5F4F7]",
+      )}
+    >
+      <span
+        className={cn(
+          "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
+          active ? "bg-white text-[#C8285F]" : "bg-[#F5F4F7] text-[#6F6878]",
+        )}
+      >
+        <Icon className="h-[18px] w-[18px]" />
+      </span>
+      <span className="flex-1 truncate">{item.label}</span>
+      <SidebarLinkTrailing />
+    </Link>
+  );
+}
+
+function MobileMenu({
+  displayName,
+  initial,
+  roleName,
+  adminEmail,
+  mainItems,
+  configItems,
+  pathname,
+  canManageStore,
+  canOpenConfig,
+  onNavigate,
+  onLogout,
+}: {
+  displayName: string;
+  initial: string;
+  roleName: string;
+  adminEmail: string;
+  mainItems: MenuItem[];
+  configItems: MenuItem[];
+  pathname: string;
+  canManageStore: boolean;
+  canOpenConfig: boolean;
+  onNavigate?: () => void;
+  onLogout: () => void;
+}) {
+  const section = (title: string | null, items: MenuItem[]) =>
+    items.length > 0 && (
+      <div>
+        {title && (
+          <p className="mb-1 px-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-[#9A93A3]">
+            {title}
+          </p>
+        )}
+        <div className="space-y-0.5">
+          {items.map((item) => (
+            <MobileMenuLink
+              key={item.href}
+              item={item}
+              active={pathIsActive(pathname, item.href)}
+            />
+          ))}
+        </div>
+      </div>
+    );
+
+  return (
+    <aside className="flex h-full w-full flex-col bg-white">
+      {/* Quem está logado; o X do Sheet fica à direita. */}
+      <div className="flex shrink-0 items-center gap-3 px-4 pb-2 pt-4 pr-14">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#FDF0F4] text-sm font-semibold text-[#C8285F]">
+          {initial}
+        </span>
+        <div className="min-w-0">
+          <p className="truncate text-[15px] font-semibold text-[#1F1A26]">{displayName}</p>
+          <p className="truncate text-xs text-[#9A93A3]" title={adminEmail || undefined}>
+            {roleName}
+          </p>
+        </div>
+      </div>
+
+      <div className="shrink-0 px-1">
+        <StoreStatusCard canManageStore={canManageStore} canOpenConfig={canOpenConfig} />
+      </div>
+
+      <nav
+        aria-label="Navegação administrativa"
+        onClick={(event) => {
+          if ((event.target as HTMLElement).closest("a")) onNavigate?.();
+        }}
+        className="flex-1 space-y-5 overflow-y-auto px-3 pb-4 pt-1"
+      >
+        {section(null, mainItems)}
+        {section("Configurações", configItems)}
+      </nav>
+
+      <div className="shrink-0 border-t border-[#F0EEF3] px-3 py-2">
+        <button
+          type="button"
+          onClick={onLogout}
+          className="flex min-h-12 w-full items-center gap-3 rounded-xl px-2 text-[15px] font-medium text-[#B42318] transition-colors active:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
+        >
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-red-50">
+            <LogOut className="h-[18px] w-[18px]" aria-hidden="true" />
+          </span>
+          Sair
+        </button>
+      </div>
+    </aside>
   );
 }

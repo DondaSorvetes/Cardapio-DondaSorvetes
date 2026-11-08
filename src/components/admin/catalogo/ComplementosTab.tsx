@@ -16,7 +16,7 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Plus, Loader2 } from "lucide-react";
+import { GripVertical, Plus, Loader2, MoreHorizontal } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import {
   createGrupoOpcoes,
@@ -44,6 +44,17 @@ import type { GrupoOpcoes, Opcao, TagRef } from "@/types/adicional";
 import type { TagRow } from "@/actions/admin/tags";
 
 type GrupoComOpcoes = GrupoOpcoes & { opcoes: Opcao[] };
+
+/** "Obrigatório · escolha 1" / "Opcional · até 3" — em vez de min/max. */
+function regraGrupo(g: GrupoOpcoes): string {
+  const min = Number(g.min_escolha ?? 0);
+  const max = Number(g.max_escolha ?? 1);
+  if (min > 0)
+    return min === max
+      ? `Obrigatório · escolha ${max}`
+      : `Obrigatório · escolha de ${min} a ${max}`;
+  return `Opcional · até ${max}`;
+}
 
 function isOpcaoDisponivel(o: Opcao): boolean {
   if (o.status === "inativo") return false;
@@ -187,28 +198,26 @@ function OptionRowInner({
     }
   };
 
+  const preco = Number(opcao.preco_adicional || 0);
+
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={cn(
-        "catalog-option-row flex flex-wrap items-center gap-2 px-3 py-2 bg-white group",
-        !disponivel && "opacity-70 bg-[#FAFAFA]",
-      )}
+      className={cn("catalog-option-row", !disponivel && "is-off")}
     >
       {dragHandleProps ? (
         <button
           type="button"
-          className="text-[#D1D5DB] cursor-grab touch-none"
-          aria-label="Arrastar opção"
+          className="catalog-option-drag"
+          aria-label={`Arrastar ${opcao.nome}`}
           {...dragHandleProps}
         >
-          <GripVertical className="w-3.5 h-3.5" />
+          <GripVertical className="w-3.5 h-3.5" aria-hidden="true" />
         </button>
-      ) : (
-        <span className="w-3.5" aria-hidden />
-      )}
-      <div className="basis-[calc(100%-3.5rem)] sm:basis-auto flex-1 min-w-0 flex items-center gap-1.5">
+      ) : null}
+
+      <div className="catalog-option-name">
         {editing ? (
           <Input
             autoFocus
@@ -220,95 +229,103 @@ function OptionRowInner({
             }}
             onKeyDown={(e) => {
               if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+              if (e.key === "Escape") {
+                setName(opcao.nome);
+                setEditing(false);
+              }
             }}
-            className="h-8 text-sm flex-1 min-w-0"
+            aria-label="Nome da opção"
+            className="h-8 text-sm"
           />
         ) : (
           <button
             type="button"
-            className="min-w-0 text-left text-sm font-medium text-[#111827] break-words"
             onClick={() => setEditing(true)}
-            title="Clique para renomear"
+            title="Renomear"
           >
             {opcao.nome}
           </button>
         )}
-        {opcao.tag && !editing && <CatalogTagBadge tag={opcao.tag} />}
       </div>
 
-      <TagSelectPopover
-        value={opcao.tag_id}
-        tag={opcao.tag}
-        onChange={onTagChange}
+      {/* Sem tag, o seletor só aparece ao passar o mouse (sempre no toque). */}
+      <div className={cn("catalog-option-tag", !opcao.tag && "is-empty")}>
+        <TagSelectPopover
+          value={opcao.tag_id}
+          tag={opcao.tag}
+          onChange={onTagChange}
+          disabled={toggling}
+          placeholder=""
+        />
+      </div>
+
+      {editingPrice ? (
+        <Input
+          autoFocus
+          type="text"
+          inputMode="decimal"
+          value={priceStr}
+          onChange={(e) => setPriceStr(e.target.value)}
+          onBlur={commitPrice}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+            if (e.key === "Escape") {
+              setPriceStr(preco.toFixed(2));
+              setEditingPrice(false);
+            }
+          }}
+          className="h-8 w-[84px] shrink-0 rounded-lg px-2 text-right text-sm tabular-nums"
+          aria-label="Preço adicional"
+        />
+      ) : (
+        <button
+          type="button"
+          onClick={() => setEditingPrice(true)}
+          className={cn("catalog-option-price", preco === 0 && "is-zero")}
+          title="Alterar preço"
+        >
+          {preco === 0 ? "Grátis" : `+ ${formatBRL(preco)}`}
+        </button>
+      )}
+
+      <Switch
+        checked={disponivel}
         disabled={toggling}
-        placeholder="Tag"
+        onCheckedChange={() => onToggle()}
+        className="h-5 w-9 shrink-0 data-[state=checked]:bg-emerald-600 data-[state=unchecked]:bg-[#D4D0DA] [&>span]:h-4 [&>span]:w-4 [&>span]:data-[state=checked]:translate-x-4"
+        aria-label={disponivel ? `Pausar ${opcao.nome}` : `Ativar ${opcao.nome}`}
       />
 
-      {/* Preço editável */}
-      <div className="flex items-center gap-1 shrink-0">
-        <span className="text-[10px] text-[#9CA3AF] font-medium">R$</span>
-        {editingPrice ? (
-          <Input
-            autoFocus
-            type="text"
-            inputMode="decimal"
-            value={priceStr}
-            onChange={(e) => setPriceStr(e.target.value)}
-            onBlur={commitPrice}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-              if (e.key === "Escape") {
-                setPriceStr(
-                  String(Number(opcao.preco_adicional || 0).toFixed(2)),
-                );
-                setEditingPrice(false);
-              }
-            }}
-            className="h-8 w-[72px] text-sm tabular-nums text-right rounded-lg px-2"
-            aria-label="Preço adicional"
-          />
-        ) : (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
           <button
             type="button"
-            onClick={() => setEditingPrice(true)}
-            className={cn(
-              "h-8 min-w-[72px] px-2 rounded-lg text-sm tabular-nums text-right font-semibold",
-              "border border-transparent hover:border-[#F6BFD2] hover:bg-[#FDF0F4] text-[#111827]",
-              "transition-colors",
-            )}
-            title="Clique para editar o valor"
+            className="catalog-icon-button"
+            aria-label={`Mais ações de ${opcao.nome}`}
           >
-            {Number(opcao.preco_adicional || 0)
-              .toFixed(2)
-              .replace(".", ",")}
+            <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
           </button>
-        )}
-      </div>
-
-      <div className="flex flex-col items-center gap-0.5 shrink-0">
-        <Switch
-          checked={disponivel}
-          disabled={toggling}
-          onCheckedChange={() => onToggle()}
-          className="data-[state=checked]:bg-[#C8285F] data-[state=unchecked]:bg-[#D1D5DB] scale-90"
-          aria-label={disponivel ? "Desativar opção" : "Ativar opção"}
-        />
-        <span
-          className={cn(
-            "text-[9px] font-semibold uppercase",
-            disponivel ? "text-emerald-600" : "text-[#9CA3AF]",
-          )}
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="end"
+          className="w-40"
+          // Não devolve o foco ao "⋯": senão o campo de edição aberto perde o foco e fecha.
+          onCloseAutoFocus={(e) => e.preventDefault()}
         >
-          {disponivel ? "On" : "Off"}
-        </span>
-      </div>
-      <button
-        type="button"
-        className="text-[11px] text-red-500 opacity-100"
-        onClick={onDelete}
-      >
-        Excluir
-      </button>
+          <DropdownMenuItem onClick={() => setEditing(true)}>
+            Renomear
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setEditingPrice(true)}>
+            Alterar preço
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={onDelete}
+            className="text-red-600 focus:text-red-600"
+          >
+            Excluir
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }
@@ -322,6 +339,9 @@ export function ComplementosTab({
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [newGrupo, setNewGrupo] = useState("");
+  const [creatingGrupo, setCreatingGrupo] = useState(false);
+  const [renamingGrupo, setRenamingGrupo] = useState(false);
+  const [grupoNome, setGrupoNome] = useState("");
   const [newOpcao, setNewOpcao] = useState("");
   const [busy, setBusy] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
@@ -403,6 +423,7 @@ export function ComplementosTab({
         max_escolha: 1,
       });
       setNewGrupo("");
+      setCreatingGrupo(false);
       toast.success("Grupo criado");
       setSelectedId(String(g.id));
       await load();
@@ -622,84 +643,82 @@ export function ComplementosTab({
     );
   }
 
-  const title =
-    mode === "opcoes" ? "Grupos de opções" : "Grupos de complementos";
-  const subtitle =
-    mode === "opcoes"
-      ? "Tamanhos, tipos de leite e escolhas obrigatórias"
-      : "Caldas, frutas, coberturas e adicionais";
-
   return (
     <div className="catalog-groups">
       <aside className="catalog-groups-nav">
-        <div className="catalog-group-selector">
-          <label htmlFor={`group-selector-${mode}`} className="sr-only">
-            Grupo selecionado
-          </label>
-          <select
-            id={`group-selector-${mode}`}
-            value={selectedId ?? ""}
-            onChange={(e) => setSelectedId(e.target.value)}
-          >
-            {grupos.map((g) => (
-              <option key={g.id} value={String(g.id)}>
-                {g.nome} ({g.opcoes.length})
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="px-4 py-3 border-b border-[#E5E7EB]">
-          <h2 className="text-sm font-semibold text-[#111827]">{title}</h2>
-          <p className="text-[11px] text-[#9CA3AF] mt-0.5">{subtitle}</p>
-        </div>
-        <div className="p-2 flex gap-1 border-b border-[#E5E7EB]">
-          <Input
-            value={newGrupo}
-            onChange={(e) => setNewGrupo(e.target.value)}
-            aria-label="Nome do novo grupo"
-            placeholder="Novo grupo…"
-            className="h-9 text-sm rounded-lg"
-            onKeyDown={(e) => e.key === "Enter" && void createGrupo()}
-          />
+        <div className="catalog-groups-head">
+          <h2>Grupos</h2>
           <Button
+            type="button"
             size="icon"
-            aria-label="Criar grupo"
-            className="h-9 w-9 shrink-0 bg-[#C8285F] hover:bg-[#E33E70]"
-            disabled={busy}
-            onClick={() => void createGrupo()}
+            variant="ghost"
+            aria-label="Novo grupo"
+            aria-expanded={creatingGrupo}
+            className="h-7 w-7 rounded-md text-[#9A93A3] hover:bg-[#F2ECFA] hover:text-[#C8285F]"
+            onClick={() => {
+              setCreatingGrupo((v) => !v);
+              setNewGrupo("");
+            }}
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-3.5 h-3.5" />
           </Button>
         </div>
-        <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
+        {(creatingGrupo || grupos.length === 0) && (
+          <div className="catalog-groups-new">
+            <Input
+              autoFocus={creatingGrupo}
+              value={newGrupo}
+              onChange={(e) => setNewGrupo(e.target.value)}
+              aria-label="Nome do novo grupo"
+              placeholder={
+                mode === "opcoes" ? "Ex.: Tamanho" : "Ex.: Coberturas"
+              }
+              className="h-9 text-sm rounded-lg"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void createGrupo();
+                if (e.key === "Escape") setCreatingGrupo(false);
+              }}
+            />
+            <Button
+              size="sm"
+              className="h-9 shrink-0 bg-[#C8285F] hover:bg-[#A51F50]"
+              disabled={busy}
+              onClick={() => void createGrupo()}
+            >
+              Criar
+            </Button>
+          </div>
+        )}
+        <div className="catalog-group-selector" role="group" aria-label="Grupo">
+          {grupos.map((g) => (
+            <button
+              key={g.id}
+              type="button"
+              className="catalog-chip"
+              aria-pressed={String(g.id) === selectedId}
+              onClick={() => setSelectedId(String(g.id))}
+            >
+              {g.nome}
+            </button>
+          ))}
+        </div>
+        <div className="catalog-groups-list">
           {grupos.length === 0 ? (
             <CatalogEmpty kind="complementos" />
           ) : (
             grupos.map((g) => {
               const active = String(g.id) === selectedId;
-              const obrigatorio = Number(g.min_escolha || 0) > 0;
               return (
                 <button
                   key={g.id}
                   type="button"
                   onClick={() => setSelectedId(String(g.id))}
-                  className={cn(
-                    "w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-left transition-colors",
-                    active
-                      ? "bg-[#FDF0F4] text-[#C8285F]"
-                      : "hover:bg-[#F7F8FC] text-[#374151]",
-                  )}
+                  aria-current={active ? "true" : undefined}
+                  className={cn("catalog-group-item", active && "is-active")}
                 >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <p className="text-sm font-medium truncate">{g.nome}</p>
-                      {g.tag && <CatalogTagBadge tag={g.tag} />}
-                    </div>
-                    <p className="text-[10px] text-[#9CA3AF]">
-                      {g.opcoes.length} opções ·{" "}
-                      {obrigatorio ? "Obrigatório" : "Opcional"}
-                    </p>
-                  </div>
+                  <span className="truncate">{g.nome}</span>
+                  {g.tag && <CatalogTagBadge tag={g.tag} />}
+                  <span className="catalog-count">{g.opcoes.length}</span>
                 </button>
               );
             })
@@ -712,112 +731,138 @@ export function ComplementosTab({
           <CatalogEmpty kind="complementos" className="flex-1" />
         ) : (
           <>
-            <div className="px-4 sm:px-6 py-4 border-b border-[#E5E7EB] bg-white flex flex-wrap items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="text-lg font-bold text-[#111827]">
-                    {selected.nome}
-                  </h3>
-                  {selected.tag && (
-                    <CatalogTagBadge tag={selected.tag} size="md" />
-                  )}
-                </div>
-                <p className="text-sm text-[#6B7280]">
-                  {selected.opcoes.length} opções · min{" "}
-                  {selected.min_escolha ?? 0} · max {selected.max_escolha}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2 justify-end">
-                <TagSelectPopover
-                  value={selected.tag_id}
-                  tag={selected.tag}
-                  onChange={(id, tag) => void handleGrupoTag(selected, id, tag)}
-                  placeholder="Tag do grupo"
-                  size="md"
-                />
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      Ações do grupo
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    {" "}
-                    <DropdownMenuItem
-                      className="rounded-xl"
-                      onClick={async () => {
-                        const nome = window.prompt("Novo nome", selected.nome);
-                        if (!nome?.trim()) return;
+            <div className="catalog-group-header">
+              <div className="min-w-0 flex-1">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  {renamingGrupo ? (
+                    <Input
+                      autoFocus
+                      value={grupoNome}
+                      onChange={(e) => setGrupoNome(e.target.value)}
+                      aria-label="Nome do grupo"
+                      className="h-9 max-w-[320px] text-base font-semibold"
+                      onBlur={async () => {
+                        setRenamingGrupo(false);
+                        const nome = grupoNome.trim();
+                        if (!nome || nome === selected.nome) return;
                         try {
-                          await updateGrupoOpcoes(selected.id, {
-                            nome: nome.trim(),
-                          });
+                          await updateGrupoOpcoes(selected.id, { nome });
                           toast.success("Grupo atualizado");
                           await load();
                         } catch {
                           toast.error("Falha ao atualizar");
                         }
                       }}
-                    >
-                      Renomear
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      className="rounded-xl text-red-600 border-red-200 hover:bg-red-50"
-                      onClick={async () => {
-                        if (!confirm("Excluir este grupo e suas opções?"))
-                          return;
-                        try {
-                          await deleteGrupoOpcoes(selected.id);
-                          toast.success("Grupo excluído");
-                          setSelectedId(null);
-                          await load();
-                        } catch {
-                          toast.error("Falha ao excluir");
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                        if (e.key === "Escape") {
+                          setGrupoNome(selected.nome);
+                          setRenamingGrupo(false);
                         }
                       }}
-                    >
-                      Excluir
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                    />
+                  ) : (
+                    <h3>
+                      <button
+                        type="button"
+                        title="Renomear grupo"
+                        onClick={() => {
+                          setGrupoNome(selected.nome);
+                          setRenamingGrupo(true);
+                        }}
+                      >
+                        {selected.nome}
+                      </button>
+                    </h3>
+                  )}
+                  <TagSelectPopover
+                    value={selected.tag_id}
+                    tag={selected.tag}
+                    onChange={(id, tag) => void handleGrupoTag(selected, id, tag)}
+                    placeholder="Tag"
+                  />
+                </div>
+                <p className="catalog-group-rule">{regraGrupo(selected)}</p>
               </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="catalog-icon-button"
+                    aria-label={`Ações do grupo ${selected.nome}`}
+                  >
+                    <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  className="w-44"
+                  onCloseAutoFocus={(e) => e.preventDefault()}
+                >
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setGrupoNome(selected.nome);
+                      setRenamingGrupo(true);
+                    }}
+                  >
+                    Renomear
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="text-red-600 focus:text-red-600"
+                    onClick={async () => {
+                      if (!confirm("Excluir este grupo e suas opções?")) return;
+                      try {
+                        await deleteGrupoOpcoes(selected.id);
+                        toast.success("Grupo excluído");
+                        setSelectedId(null);
+                        await load();
+                      } catch {
+                        toast.error("Falha ao excluir");
+                      }
+                    }}
+                  >
+                    Excluir grupo
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
 
-            <div className="catalog-group-options space-y-3">
-              <div className="flex flex-wrap gap-2 w-full items-center">
+            <div className="catalog-group-options">
+              <div className="catalog-option-new">
                 <Input
                   value={newOpcao}
                   onChange={(e) => setNewOpcao(e.target.value)}
                   aria-label="Nome da nova opção"
-                  placeholder="Nova opção (ex.: Granola)"
-                  className="h-10 rounded-xl flex-1 min-w-[140px]"
+                  placeholder={
+                    mode === "opcoes"
+                      ? "Nova opção (ex.: 500 ml)"
+                      : "Nova opção (ex.: Granola)"
+                  }
+                  className="h-10 rounded-lg"
                   onKeyDown={(e) => e.key === "Enter" && void createOption()}
                 />
-                <div className="flex items-center gap-1">
-                  <span className="text-xs text-[#9CA3AF]">R$</span>
+                <div className="catalog-option-new-price">
+                  <span aria-hidden="true">R$</span>
                   <Input
                     value={newOpcaoPreco}
                     onChange={(e) => setNewOpcaoPreco(e.target.value)}
                     placeholder="0,00"
                     inputMode="decimal"
-                    className="h-10 w-[88px] rounded-xl tabular-nums"
+                    className="h-10 rounded-lg pl-8 text-right tabular-nums"
                     onKeyDown={(e) => e.key === "Enter" && void createOption()}
                     aria-label="Preço da nova opção"
                   />
                 </div>
                 <Button
-                  className="h-10 rounded-xl bg-[#C8285F] hover:bg-[#E33E70]"
-                  disabled={busy}
+                  className="h-10 shrink-0 rounded-lg bg-[#C8285F] px-3 hover:bg-[#A51F50]"
+                  disabled={busy || !newOpcao.trim()}
                   onClick={() => void createOption()}
+                  aria-label="Adicionar opção"
                 >
-                  <Plus className="w-4 h-4 mr-1" />
-                  Adicionar
+                  <Plus className="h-4 w-4" aria-hidden="true" />
+                  <span className="hidden sm:inline">Adicionar</span>
                 </Button>
               </div>
-              <p className="text-[11px] text-[#9CA3AF] w-full">
-                Clique no nome para renomear · clique no valor para alterar o
-                preço · arraste para reordenar
-              </p>
 
               {dndReady ? (
                 <DndContext
@@ -829,7 +874,7 @@ export function ComplementosTab({
                     items={selected.opcoes.map((o) => `op-${o.id}`)}
                     strategy={verticalListSortingStrategy}
                   >
-                    <div className="space-y-1.5 w-full">
+                    <div className="catalog-option-list">
                       {selected.opcoes.map((o) => (
                         <OptionRow
                           key={o.id}
@@ -868,7 +913,7 @@ export function ComplementosTab({
                   </SortableContext>
                 </DndContext>
               ) : (
-                <div className="space-y-1.5 w-full">
+                <div className="catalog-option-list">
                   {selected.opcoes.map((o) => (
                     <OptionRow
                       key={o.id}
@@ -904,8 +949,8 @@ export function ComplementosTab({
               )}
 
               {selected.opcoes.length === 0 && (
-                <p className="text-sm text-[#9CA3AF]">
-                  Nenhuma opção neste grupo ainda.
+                <p className="catalog-option-empty">
+                  Nenhuma opção ainda. Adicione a primeira acima.
                 </p>
               )}
             </div>

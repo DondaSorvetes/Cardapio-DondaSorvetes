@@ -53,66 +53,71 @@ export function MobileBottomNav({
   }, []);
 
   const anyActive = shortcuts.some((item) => pathIsActive(pathname, item.href));
+  const menuActive = menuOpen || (!anyActive && pathname.startsWith("/admin"));
+
+  /* Mesmo item da barra do cliente: pílula com ícone em cima e rótulo embaixo. */
+  const itemClass = (active: boolean) =>
+    cn(
+      "relative flex min-h-[52px] w-full flex-col items-center justify-center gap-0.5 rounded-full px-1 text-[11px] leading-tight transition-colors duration-200",
+      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8285F]/40",
+      active
+        ? "bg-[#C8285F]/15 font-semibold text-[#C8285F] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5)]"
+        : "font-medium text-[#1F1A26]/70 hover:text-[#1F1A26] active:bg-white/40",
+    );
+  const iconClass = (active: boolean) =>
+    cn("h-[22px] w-[22px] transition-transform duration-200", active && "scale-105");
 
   return (
     <nav
       aria-label="Atalhos"
       className={cn(
-        "admin-bottom-nav fixed inset-x-0 bottom-0 z-40 border-t border-[#E5E7EB] bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/85 md:hidden",
+        "admin-bottom-nav pointer-events-none fixed inset-x-0 bottom-0 z-40 px-3 md:hidden",
         "transition-transform duration-200 motion-reduce:transition-none",
-        typing && "translate-y-full",
+        typing && "translate-y-[calc(100%+1rem)]",
       )}
     >
-      <ul className="mx-auto flex max-w-lg items-stretch justify-around px-1">
+      {/* Liquid glass, igual ao app do cliente: fundo translúcido + blur/saturação
+          + brilho interno no topo. Sem backdrop-filter, cai para um fundo quase opaco. */}
+      <ul
+        className={cn(
+          "pointer-events-auto relative mx-auto grid max-w-md gap-1 overflow-hidden rounded-full p-1.5",
+          "border border-white/50 bg-white/90",
+          "supports-[backdrop-filter]:bg-white/55 supports-[backdrop-filter]:backdrop-blur-xl supports-[backdrop-filter]:backdrop-saturate-[1.8]",
+          "shadow-[0_10px_30px_-8px_rgba(0,0,0,0.22),inset_0_1px_0_0_rgba(255,255,255,0.65),inset_0_-1px_0_0_rgba(255,255,255,0.15)]",
+          "before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-1/2 before:rounded-t-full before:bg-gradient-to-b before:from-white/40 before:to-transparent before:content-['']",
+        )}
+        style={{ gridTemplateColumns: `repeat(${shortcuts.length + 1}, minmax(0, 1fr))` }}
+      >
         {shortcuts.map((item) => {
           const active = pathIsActive(pathname, item.href);
           const Icon = item.icon;
           return (
-            <li key={item.href} className="flex-1">
+            <li key={item.href} className="relative min-w-0">
               <Link
                 href={item.href}
                 aria-current={active ? "page" : undefined}
-                className={cn(
-                  "group flex h-16 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors",
-                  active ? "text-[#C8285F]" : "text-[#6B7280] active:text-[#C8285F]",
-                )}
+                className={itemClass(active)}
               >
-                <span
-                  className={cn(
-                    "flex h-8 w-14 items-center justify-center rounded-full transition-colors",
-                    active ? "bg-[#FDE6EE]" : "group-active:bg-[#F3F4F6]",
-                  )}
-                >
-                  <Icon className={cn("h-5 w-5", active && "stroke-[2.25]")} />
-                </span>
-                <span className={cn("leading-none", active && "font-semibold")}>{SHORT[item.href] ?? item.label}</span>
+                <Icon className={iconClass(active)} />
+                <span className="max-w-full truncate">{SHORT[item.href] ?? item.label}</span>
               </Link>
             </li>
           );
         })}
-        <li className="flex-1">
+        <li className="relative min-w-0">
           <button
             type="button"
             onClick={onOpenMenu}
             aria-expanded={menuOpen}
             aria-haspopup="dialog"
-            className={cn(
-              "group flex h-16 w-full flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors",
-              menuOpen || (!anyActive && pathname.startsWith("/admin")) ? "text-[#C8285F]" : "text-[#6B7280]",
-            )}
+            className={itemClass(menuActive)}
           >
-            <span
-              className={cn(
-                "flex h-8 w-14 items-center justify-center rounded-full transition-colors",
-                menuOpen || !anyActive ? "bg-[#FDE6EE]" : "group-active:bg-[#F3F4F6]",
-              )}
-            >
-              <Menu className="h-5 w-5" />
-            </span>
-            <span className="leading-none">Menu</span>
+            <Menu className={iconClass(menuActive)} />
+            <span className="max-w-full truncate">Menu</span>
           </button>
         </li>
       </ul>
     </nav>
   );
 }
+

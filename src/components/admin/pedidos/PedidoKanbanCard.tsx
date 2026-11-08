@@ -18,6 +18,7 @@ import {
 import {
   shortOrderId,
   isDeliveryType,
+  isPickupType,
   getOrderActions,
 } from "./order-status";
 import { ModalidadeBadge } from "./ModalidadeBadge";
@@ -96,7 +97,7 @@ function PedidoKanbanCardComponent({
       className={cn(
         layout === "row"
           ? "shrink-0"
-          : "absolute top-1.5 right-1.5"
+          : "absolute right-1 top-1/2 -translate-y-1/2 md:right-1.5 md:top-1.5 md:translate-y-0"
       )}
       onPointerDown={(e) => e.stopPropagation()}
     >
@@ -104,7 +105,10 @@ function PedidoKanbanCardComponent({
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            className="h-8 w-8 rounded-md border border-[#E5E7EB] bg-white flex items-center justify-center text-[#6B7280] hover:text-[#111827] hover:bg-[#F9FAFB]"
+            className={cn(
+              "h-8 w-8 rounded-md border bg-white flex items-center justify-center text-[#6B7280] hover:text-[#111827] hover:bg-[#F9FAFB]",
+              layout === "card" ? "border-transparent md:border-[#E5E7EB]" : "border-[#E5E7EB]"
+            )}
             aria-label="Ações do pedido"
           >
             <MoreHorizontal className="w-4 h-4" />
@@ -275,10 +279,50 @@ function PedidoKanbanCardComponent({
         )}
       />
 
+      {/* Celular: duas linhas — quem/quanto e o que/há quanto tempo. */}
       <button
         type="button"
         onClick={() => onOpen(pedido)}
-        className="w-full pl-3 pr-3 pt-14 md:pt-3 pb-3 text-left"
+        className="w-full py-3 pl-4 pr-12 text-left md:hidden"
+      >
+        <div className="flex items-baseline justify-between gap-3">
+          <p className="min-w-0 truncate text-[15px] leading-tight">
+            <span className="font-semibold text-[#111827]">
+              #{shortOrderId(pedido.id)}
+            </span>{" "}
+            <span className="text-[#4B5563]">{pedido.cliente_nome}</span>
+          </p>
+          <p className="shrink-0 text-[15px] font-bold tabular-nums text-[#111827]">
+            {formatCurrency(pedido.total)}
+          </p>
+        </div>
+        <div className="mt-1 flex items-center justify-between gap-3">
+          <p className="min-w-0 truncate text-[12.5px] text-[#8A8394]">
+            {[
+              itensResumo,
+              isPickupType(pedido.tipo_entrega) ? "Retirada" : "Entrega",
+              paymentBadgeLabel(pedido.meio_pagamento),
+            ].join(" · ")}
+          </p>
+          <OrderElapsedTimer
+            createdAt={pedido.created_at}
+            compact
+            className="shrink-0"
+          />
+        </div>
+        {pedido.agendado_para && isPickupType(pedido.tipo_entrega) && (
+          <ModalidadeBadge
+            tipo={pedido.tipo_entrega}
+            agendadoPara={pedido.agendado_para}
+            className="mt-1.5"
+          />
+        )}
+      </button>
+
+      <button
+        type="button"
+        onClick={() => onOpen(pedido)}
+        className="hidden w-full p-3 text-left md:block"
       >
         <div className="flex items-start justify-between gap-1 md:pr-10">
           <div className="min-w-0">

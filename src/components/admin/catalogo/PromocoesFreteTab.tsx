@@ -284,7 +284,11 @@ function NovaCampanhaSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="left" className="catalog-sheet flex w-[88vw] max-w-[440px] flex-col gap-0 p-0 sm:max-w-[440px]">
+      <SheetContent
+        side="right"
+        className="catalog-sheet admin-side-sheet flex h-dvh w-full flex-col gap-0 border-l border-[#E9E5EF] p-0"
+        style={{ "--side-sheet-width": "440px" } as React.CSSProperties}
+      >
         <SheetHeader className="catalog-sheet-header">
           <SheetTitle>Nova campanha de frete grátis</SheetTitle>
           <SheetDescription className="sr-only">

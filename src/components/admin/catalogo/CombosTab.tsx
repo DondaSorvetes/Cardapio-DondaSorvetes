@@ -298,7 +298,11 @@ function NovoComboSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="left" className="catalog-sheet flex w-[88vw] max-w-[520px] flex-col gap-0 p-0 sm:max-w-[520px]">
+      <SheetContent
+        side="right"
+        className="catalog-sheet admin-side-sheet flex h-dvh w-full flex-col gap-0 border-l border-[#E9E5EF] p-0"
+        style={{ "--side-sheet-width": "520px" } as React.CSSProperties}
+      >
         <SheetHeader className="catalog-sheet-header">
           <SheetTitle>Novo combo</SheetTitle>
           <SheetDescription className="sr-only">

@@ -7,10 +7,13 @@
   overflow-wrap: anywhere;
 }
 @media (max-width: 767.98px) {
-  .admin-shell { --admin-bottom-nav: calc(4rem + env(safe-area-inset-bottom, 0px)); }
+  /* Sem barra superior no celular (o menu fica na barra inferior). */
+  .admin-shell { --admin-toolbar-height: 0rem; }
+  /* Pílula flutuante (66px) + respiro abaixo + folga para o conteúdo não encostar. */
+  .admin-shell { --admin-bottom-nav: calc(5.5rem + env(safe-area-inset-bottom, 0px)); }
   .admin-content-area { padding-bottom: var(--admin-bottom-nav); }
 }
-.admin-bottom-nav { padding-bottom: env(safe-area-inset-bottom, 0px); }
+.admin-bottom-nav { padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px)); }
 .admin-shell :where(.grid > *) { min-width: 0; }
 .admin-shell :where(input, textarea, select) { max-width: 100%; }
 .admin-shell :where(button, a, input, select, textarea):focus-visible,
@@ -37,7 +40,7 @@ body:has(.admin-shell) :where([role="dialog"], [role="menu"]) :focus-visible {
 .admin-mobile-menu > button { z-index: 1; top: max(.125rem, env(safe-area-inset-top)); right: .5rem; }
 body:has(.admin-shell) [role="dialog"],
 body:has(.admin-shell) [role="alertdialog"] { max-width: 100vw; max-height: 100dvh; overscroll-behavior: contain; overflow-wrap: anywhere; }
-body:has(.admin-shell) [role="dialog"]:not(.admin-detail-sheet):not(.admin-mobile-menu):not(.admin-product-sheet):not(.coupon-sheet),
+body:has(.admin-shell) [role="dialog"]:not(.admin-detail-sheet):not(.admin-mobile-menu):not(.admin-product-sheet):not(.admin-side-sheet):not(.coupon-sheet),
 body:has(.admin-shell) [role="alertdialog"] { overflow-y: auto; }
 body:has(.admin-shell) :is([role="menu"], [data-radix-popper-content-wrapper]) { max-width: calc(100vw - 1rem); }
 body:has(.admin-shell) [data-radix-popper-content-wrapper] > * { max-width: calc(100vw - 1rem); }
@@ -54,6 +57,18 @@ body:has(.admin-shell) [role="dialog"].admin-product-sheet {
   left: auto;
   overflow: hidden;
 }
+/* Painéis de criação (combos, campanhas): encaixados à direita, sem cobrir a tela. */
+body:has(.admin-shell) [role="dialog"].admin-side-sheet {
+  width: min(var(--side-sheet-width, 520px), 100vw);
+  max-width: var(--side-sheet-width, 520px);
+  right: 0;
+  left: auto;
+  overflow: hidden;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  box-shadow: -8px 0 24px rgb(31 26 38 / .08);
+}
+body:has(.admin-shell) .admin-side-sheet > button { top: .75rem; right: .75rem; min-width: 40px; min-height: 40px; display: grid; place-items: center; border-radius: 999px; }
 body:has(.admin-shell) .admin-product-sheet > button { top: .25rem; right: .5rem; min-width: 44px; min-height: 44px; display: grid; place-items: center; }
 .admin-detail-sheet [data-radix-scroll-area-viewport] > div { display: block !important; }
 .admin-product-sheet [data-radix-scroll-area-viewport] > div { display: block !important; }
@@ -112,7 +127,16 @@ body:has(.admin-shell) .admin-product-sheet > button { top: .25rem; right: .5rem
  .orders-options > div { margin-top:12px; }
  .orders-options:not([open]) > div { display:none; }
  .orders-mobile-board { border:0; background:transparent; box-shadow:none; overflow:visible; }
- .orders-mobile-board .admin-kanban-column { margin-bottom:12px; border:1px solid #f0e2e7; border-radius:10px; overflow:hidden; }
+ /* Celular: cada etapa é só um título discreto + cartões soltos, sem caixa em volta. */
+ .orders-mobile-board .admin-kanban-column { margin-bottom:16px; border:0; background:transparent; overflow:visible; }
+ .orders-mobile-board .admin-kanban-column > header { padding:0 4px 8px; border:0; background:transparent; }
+ .orders-mobile-board .admin-kanban-column > header h3 { font-size:12px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:#8a8394; }
+ .orders-mobile-board .admin-kanban-column > header span.rounded-full:not(.h-2) { background:transparent; color:#a29aaa; }
+ .orders-mobile-board .admin-kanban-column > div { padding:0; min-height:0; }
+ .orders-mobile-board .admin-kanban-column > div > * + * { margin-top:8px; }
+ .orders-mobile-board .admin-kanban-column > div > div { border-radius:12px; border-color:#efedf2; }
+ .orders-stage-chips { scrollbar-width:none; }
+ .orders-stage-chips::-webkit-scrollbar { display:none; }
 }
 @media(min-width:768px) { .orders-options > div { display:flex; } }
 

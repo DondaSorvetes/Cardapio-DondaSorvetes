@@ -188,6 +188,12 @@ function ProdutoRowInner({
               {!disponivel && <span className="catalog-paused-pill">Pausado</span>}
             </span>
             {subtitulo ? <span className="catalog-product-desc">{subtitulo}</span> : null}
+            {/* No celular o preço vai logo abaixo do nome (a coluna de preço some). */}
+            <span className="catalog-product-mobile-price">
+              {formatBRL(
+                hasPrecoPromocional(produto) ? produto.preco_promocional : produto.preco_base,
+              )}
+            </span>
           </span>
         </button>
       </td>

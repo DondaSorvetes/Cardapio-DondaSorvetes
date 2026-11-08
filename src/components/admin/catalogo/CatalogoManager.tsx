@@ -4,6 +4,7 @@ import "./catalog.css";
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import { Settings2, X } from "lucide-react";
 import {
   createProduto,
   updateProduto,
@@ -396,11 +397,6 @@ export function CatalogoManager({
     <div className="catalog-page">
       <CatalogoHeader
         activeTab={tab}
-        summary={
-          tab === "produtos"
-            ? `${produtos.length} produtos em ${categorias.length} categorias`
-            : undefined
-        }
         onPrimary={() =>
           tab === "combos"
             ? setComboCreateOpen(true)
@@ -422,40 +418,38 @@ export function CatalogoManager({
       {tab === "produtos" && (
         <div className="catalog-body">
           <div className="catalog-mobile-categories">
-            <label htmlFor="catalog-category" className="sr-only">
-              Categoria
-            </label>
-            <select
-              id="catalog-category"
-              value={selectedCategoriaId ?? "__all__"}
-              onChange={(e) =>
-                setSelectedCategoriaId(
-                  e.target.value === "__all__" ? null : e.target.value,
-                )
-              }
-            >
-              <option value="__all__">
-                Todos os produtos ({produtos.length})
-              </option>
-              {categorias.map((c) => (
-                <option key={c.id} value={String(c.id)}>
-                  {c.nome} (
-                  {
-                    produtos.filter(
-                      (p) => String(p.categoria_id) === String(c.id),
-                    ).length
-                  }
-                  )
-                </option>
+            <div className="catalog-chip-row" role="group" aria-label="Categoria">
+              {[
+                { id: null as string | null, nome: "Todos" },
+                ...categorias.map((c) => ({ id: String(c.id), nome: c.nome })),
+                ...(produtos.some((p) => p.categoria_id == null) ||
+                selectedCategoriaId === "__none__"
+                  ? [{ id: "__none__", nome: "Sem categoria" }]
+                  : []),
+              ].map((c) => (
+                <button
+                  key={c.id ?? "__all__"}
+                  type="button"
+                  aria-pressed={selectedCategoriaId === c.id}
+                  className="catalog-chip"
+                  onClick={() => setSelectedCategoriaId(c.id)}
+                >
+                  {c.nome}
+                </button>
               ))}
-              <option value="__none__">Sem categoria</option>
-            </select>
+            </div>
             <button
               type="button"
+              className="catalog-chip-manage"
               aria-expanded={manageCategories}
+              aria-label={manageCategories ? "Fechar categorias" : "Gerenciar categorias"}
               onClick={() => setManageCategories((v) => !v)}
             >
-              {manageCategories ? "Fechar" : "Categorias"}
+              {manageCategories ? (
+                <X size={18} aria-hidden="true" />
+              ) : (
+                <Settings2 size={18} aria-hidden="true" />
+              )}
             </button>
           </div>
           <div

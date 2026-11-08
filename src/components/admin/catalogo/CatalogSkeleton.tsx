@@ -3,7 +3,7 @@ export function CatalogSkeleton() {
     <div
       role="status"
       aria-label="Carregando catálogo"
-      className="p-4 sm:p-8 space-y-5 animate-pulse motion-reduce:animate-none"
+      className="min-h-full bg-white p-4 sm:px-8 sm:py-6 space-y-5 animate-pulse motion-reduce:animate-none"
     >
       <div className="flex justify-between gap-4">
         <div className="h-8 w-32 rounded bg-gray-200" />

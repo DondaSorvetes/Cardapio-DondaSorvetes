@@ -23,7 +23,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { LayoutGrid, List, Search, X } from "lucide-react";
+import { LayoutGrid, List, Search, SlidersHorizontal, X } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { DestaqueTopoMenu } from "./DestaqueTopoCard";
 import { ProdutoRow } from "./ProdutoRow";
 import { ProdutoCard } from "./ProdutoCard";
@@ -87,6 +88,9 @@ export function ProdutosArea({
   const [visible, setVisible] = useState(PAGE_SIZE);
   const [view, setView] = useState<View>("lista");
   const [dndReady, setDndReady] = useState(false);
+  /** No celular, filtros/ordem/visualização ficam recolhidos atrás de um botão. */
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const filtersChanged = statusFilter !== "todos" || sort !== "ordem";
 
   useEffect(() => {
     setDndReady(true);
@@ -229,12 +233,14 @@ export function ProdutosArea({
   );
 
   return (
-    <section className="catalog-products" aria-label="Produtos">
+    <section
+      className={cn("catalog-products", filtersOpen && "is-filters-open")}
+      aria-label="Produtos"
+    >
       <div className="catalog-list-label">
         <h2>{categoriaNome}</h2>
         <span className="catalog-list-count">
-          {counts.todos} {counts.todos === 1 ? "produto" : "produtos"}
-          {counts.inativo > 0 ? ` · ${counts.inativo} pausado${counts.inativo === 1 ? "" : "s"}` : ""}
+          {counts.todos}
         </span>
         <div className="catalog-list-label-end">
           <DestaqueTopoMenu produtos={produtos} />
@@ -265,7 +271,17 @@ export function ProdutosArea({
             </button>
           ) : null}
         </div>
-        <div className="catalog-filters">
+        <button
+          type="button"
+          className={cn("catalog-filters-toggle", filtersChanged && "has-changes")}
+          aria-expanded={filtersOpen}
+          aria-controls="catalog-filters"
+          aria-label={filtersOpen ? "Fechar filtros" : "Filtros e ordenação"}
+          onClick={() => setFiltersOpen((v) => !v)}
+        >
+          <SlidersHorizontal size={18} aria-hidden="true" />
+        </button>
+        <div className="catalog-filters" id="catalog-filters">
           <Select
             value={statusFilter}
             onValueChange={(v) => {

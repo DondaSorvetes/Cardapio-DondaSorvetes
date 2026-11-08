@@ -28,7 +28,8 @@ export function PremiumTopbar({
   return (
     <header
       data-admin-name={adminName}
-      className="sticky top-0 z-40 h-12 shrink-0 bg-white border-b border-[#E5E7EB] flex items-center px-3 xl:hidden"
+      // No celular a navegação fica só na barra inferior; a barra de cima só existe no tablet.
+      className="sticky top-0 z-40 h-12 shrink-0 bg-white border-b border-[#E5E7EB] hidden md:flex items-center px-3 xl:hidden"
     >
       <div className="flex items-center gap-3 min-w-0">
         <button

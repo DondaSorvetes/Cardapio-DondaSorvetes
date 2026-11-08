@@ -532,10 +532,44 @@ export function PedidosManager({
       )}
 
       <div className="relative flex-1 min-h-0 min-w-0 bg-[#F7F6F9]">
-        <div className="px-3 pt-3 md:hidden"><label htmlFor="mobile-order-stage" className="sr-only">Etapa dos pedidos</label><select id="mobile-order-stage" value={mobileColumn} onChange={(event) => {setMobileColumn(event.target.value as KanbanColumnId | "todos");setFilters(prev => ({...prev,status:"todos"}));}} className="h-11 w-full rounded-lg border border-[#F0E2E7] bg-white px-3 text-sm font-medium text-[#C8285F]">
-          <option value="todos">Todos os pedidos ({filtered.length})</option>
-          {KANBAN_COLUMNS.map(col => <option key={col.id} value={col.id}>{col.label} ({byColumn[col.id].length})</option>)}
-        </select></div>
+        {/* Celular: etapa em chips deslizáveis (no lugar do seletor). */}
+        <div
+          role="group"
+          aria-label="Etapa dos pedidos"
+          className="orders-stage-chips flex gap-1.5 overflow-x-auto px-3 pt-3 md:hidden"
+        >
+          {[
+            { id: "todos" as const, label: "Todos", count: filtered.length },
+            ...KANBAN_COLUMNS.map((col) => ({
+              id: col.id,
+              label: col.label,
+              count: byColumn[col.id].length,
+            })),
+          ].map((chip) => {
+            const active = mobileColumn === chip.id;
+            return (
+              <button
+                key={chip.id}
+                type="button"
+                aria-pressed={active}
+                onClick={() => {
+                  setMobileColumn(chip.id);
+                  setFilters((prev) => ({ ...prev, status: "todos" }));
+                }}
+                className={`inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8285F] ${
+                  active ? "bg-[#1F1A26] text-white" : "bg-white text-[#675B70]"
+                }`}
+              >
+                {chip.label}
+                {chip.count > 0 && (
+                  <span className={`tabular-nums ${active ? "text-white/70" : "text-[#A29AAA]"}`}>
+                    {chip.count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
         <DndContext
           sensors={sensors}
           collisionDetection={closestCorners}
@@ -564,7 +598,7 @@ export function PedidosManager({
 
           </div>
 
-          {filtered.length === 0 && <div className="px-4 py-10 text-center text-sm text-[#817A89]"><p>Nenhum pedido encontrado.</p><p className="mt-1 text-xs">Os pedidos aparecerão aqui. Confira o período em Filtros e opções.</p></div>}
+          {filtered.length === 0 && <div className="px-4 py-10 text-center text-sm text-[#817A89]"><p>Nenhum pedido encontrado.</p><p className="mt-1 text-xs">Os pedidos aparecerão aqui. Confira o período nos filtros.</p></div>}
           <DragOverlay>
             {activeDragPedido ? (
               <div className="w-[280px] rounded-lg border border-[#D9CBEA] bg-white px-3 py-3 shadow-xl">
