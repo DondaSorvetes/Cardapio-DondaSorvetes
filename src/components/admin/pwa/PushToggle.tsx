@@ -27,7 +27,6 @@ type State =
   | "off"
   | "on";
 
-const PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
 const BANNER_KEY = "donda-push-banner-fechado";
 
 function readDismissed() {
@@ -41,13 +40,18 @@ function readDismissed() {
 function usePush() {
   const [state, setState] = useState<State>("loading");
   const [busy, setBusy] = useState(false);
+  // Vem do servidor em tempo de execução (não depende do build).
+  const [publicKey, setPublicKey] = useState("");
+  const [problems, setProblems] = useState<string[]>([]);
 
   const refresh = useCallback(async () => {
     const support: PushSupport = pushSupport();
     if (support !== "supported") return setState(support);
     try {
-      const { configured } = await getPushStatus();
-      if (!configured || !PUBLIC_KEY) return setState("not-configured");
+      const status = await getPushStatus();
+      setProblems(status.problems);
+      if (!status.configured || !status.publicKey) return setState("not-configured");
+      setPublicKey(status.publicKey);
       if (Notification.permission === "denied") return setState("denied");
       if (!(await panelRegistration())) return setState("unsupported");
       const subscription = await currentSubscription();
@@ -69,7 +73,7 @@ function usePush() {
   const enable = async () => {
     setBusy(true);
     try {
-      const subscription = await subscribeDevice(PUBLIC_KEY);
+      const subscription = await subscribeDevice(publicKey);
       await savePushSubscription(subscription.toJSON());
       setState("on");
       toast.success("Notificações ativadas neste aparelho.");
@@ -115,7 +119,7 @@ function usePush() {
     }
   };
 
-  return { state, busy, enable, disable, test };
+  return { state, busy, problems, enable, disable, test };
 }
 
 const MESSAGES: Record<Exclude<State, "loading" | "on" | "off">, string> = {
@@ -129,7 +133,7 @@ const MESSAGES: Record<Exclude<State, "loading" | "on" | "off">, string> = {
 
 /** Cartão completo, na tela Configurações → App no celular. */
 export function PushCard() {
-  const { state, busy, enable, disable, test } = usePush();
+  const { state, busy, problems, enable, disable, test } = usePush();
   const on = state === "on";
   return (
     <div className="overflow-hidden rounded-lg border border-[#E5E7EB] bg-white">
@@ -149,6 +153,13 @@ export function PushCard() {
                     ? "Receba uma notificação no celular a cada pedido novo."
                     : MESSAGES[state]}
             </p>
+            {state === "not-configured" && problems.length > 0 && (
+              <ul className="mt-1.5 list-disc space-y-0.5 pl-4 text-xs text-[#9A3412]">
+                {problems.map((problem) => (
+                  <li key={problem}>{problem}</li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
         <div className="flex flex-wrap gap-2">

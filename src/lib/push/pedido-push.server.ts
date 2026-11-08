@@ -4,6 +4,7 @@ import { createServiceRoleClient } from "@/integrations/supabase/client.server";
 import { resolveAcessos, resolveAdminRole } from "@/lib/security/rbac";
 import {
   buildNewOrderPush,
+  readVapidConfig,
   sendPush,
   type NewOrderPush,
   type PushDeps,
@@ -11,21 +12,24 @@ import {
 
 /**
  * Chaves VAPID (geradas uma vez com `npx web-push generate-vapid-keys`):
- *   NEXT_PUBLIC_VAPID_PUBLIC_KEY  pública, vai para o navegador
- *   VAPID_PRIVATE_KEY             secreta, só no servidor
+ *   NEXT_PUBLIC_VAPID_PUBLIC_KEY  pública (Public Key)
+ *   VAPID_PRIVATE_KEY             secreta, só no servidor (Private Key)
  *   VAPID_SUBJECT                 contato do remetente, ex.: mailto:contato@loja.com
- * Sem elas, nada é enviado e o painel mostra que as notificações não estão ativas.
+ * Lidas em tempo de execução: o navegador recebe a pública pelo servidor, sem
+ * depender do build. Sem elas, nada é enviado e o painel diz o que falta.
  */
 function vapid() {
-  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-  const privateKey = process.env.VAPID_PRIVATE_KEY;
-  const subject = process.env.VAPID_SUBJECT;
-  if (!publicKey || !privateKey || !subject) return null;
-  return { publicKey, privateKey, subject };
+  return readVapidConfig(process.env).config;
 }
 
 export function pushConfigured() {
   return vapid() !== null;
+}
+
+/** Para a tela do painel: chave pública (se tudo certo) e o que falta configurar. */
+export function pushSetupStatus() {
+  const { config, problems } = readVapidConfig(process.env);
+  return { configured: config !== null, publicKey: config?.publicKey ?? null, problems };
 }
 
 function deps(onlyUserId?: string): PushDeps {

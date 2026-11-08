@@ -7,7 +7,7 @@ import { requireAdminApi } from "@/lib/admin/auth";
 import { hasPageAccess } from "@/lib/security/rbac";
 import { getClientIp, rateLimitCheck } from "@/lib/security/rate-limit";
 import { isAllowedPushEndpoint } from "@/lib/push/pedido-push";
-import { notifyTest, pushConfigured } from "@/lib/push/pedido-push.server";
+import { notifyTest, pushSetupStatus } from "@/lib/push/pedido-push.server";
 
 const subscriptionSchema = z.object({
   endpoint: z
@@ -36,9 +36,10 @@ async function throttle(bucket: string, limit: number) {
   if (!result.success) throw new Error("Aguarde um momento antes de tentar novamente.");
 }
 
+/** Chave pública em tempo de execução + o que falta configurar (nomes, nunca valores). */
 export async function getPushStatus() {
   await requireOrdersAccess();
-  return { configured: pushConfigured() };
+  return pushSetupStatus();
 }
 
 export async function savePushSubscription(input: unknown) {
