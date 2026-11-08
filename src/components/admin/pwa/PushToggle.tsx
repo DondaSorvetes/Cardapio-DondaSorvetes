@@ -15,6 +15,7 @@ import {
   panelRegistration,
   pushSupport,
   subscribeDevice,
+  subscribeErrorMessage,
   type PushSupport,
 } from "@/lib/pwa/push";
 
@@ -78,11 +79,13 @@ function usePush() {
       setState("on");
       toast.success("Notificações ativadas neste aparelho.");
     } catch (error) {
-      if ((error as Error).message === "PERMISSION_DENIED") {
+      const message = subscribeErrorMessage(error);
+      if (message === "PERMISSION_DENIED") {
         setState(Notification.permission === "denied" ? "denied" : "off");
         toast.error("Permissão de notificação não concedida.");
       } else {
-        toast.error((error as Error).message || "Não foi possível ativar as notificações.");
+        // Texto com instruções: fica mais tempo na tela.
+        toast.error("Não foi possível ativar as notificações", { description: message, duration: 15000 });
       }
     } finally {
       setBusy(false);

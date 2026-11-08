@@ -49,16 +49,49 @@ export async function currentSubscription(): Promise<PushSubscription | null> {
   return (await registration?.pushManager.getSubscription()) ?? null;
 }
 
+function sameKey(subscription: PushSubscription, key: Uint8Array) {
+  const current = subscription.options?.applicationServerKey;
+  if (!current) return true; // navegador não informa: mantém
+  const bytes = new Uint8Array(current);
+  return bytes.length === key.length && bytes.every((byte, i) => byte === key[i]);
+}
+
+/** Erro do navegador → mensagem em português com o que fazer. */
+export function subscribeErrorMessage(error: unknown): string {
+  const name = (error as { name?: string } | null)?.name ?? "";
+  const message = String((error as { message?: string } | null)?.message ?? "");
+  if (name === "NotAllowedError" || message === "PERMISSION_DENIED") return "PERMISSION_DENIED";
+  if (name === "AbortError" || /push service/i.test(message))
+    return (
+      "O navegador não conseguiu falar com o serviço de notificações dele. " +
+      "No Brave, ative “Usar os serviços do Google para mensagens push” em brave://settings/privacy. " +
+      "Não funciona em aba anônima. No Android, use o Chrome (o celular precisa do Google Play). " +
+      "Se a rede for de empresa/escola, teste no 4G."
+    );
+  if (name === "InvalidAccessError" || name === "InvalidStateError")
+    return "A chave de notificação do servidor não foi aceita pelo navegador. Confira a NEXT_PUBLIC_VAPID_PUBLIC_KEY na Vercel.";
+  return message || "Não foi possível ativar as notificações.";
+}
+
 /** Pede permissão (precisa vir de um toque da pessoa) e inscreve o aparelho. */
 export async function subscribeDevice(publicKey: string): Promise<PushSubscription> {
   const registration = await panelRegistration();
   if (!registration) throw new Error("O app do painel ainda não terminou de carregar. Tente de novo em instantes.");
   const permission = await Notification.requestPermission();
   if (permission !== "granted") throw new Error("PERMISSION_DENIED");
+  const key = urlBase64ToUint8Array(publicKey);
+  const options = { userVisibleOnly: true, applicationServerKey: key as BufferSource };
   const existing = await registration.pushManager.getSubscription();
-  if (existing) return existing;
-  return registration.pushManager.subscribe({
-    userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(publicKey) as BufferSource,
-  });
+  // Inscrição feita com outra chave (tentativa anterior) não recebe nada: refaz.
+  if (existing && sameKey(existing, key)) return existing;
+  if (existing) await existing.unsubscribe().catch(() => {});
+  try {
+    return await registration.pushManager.subscribe(options);
+  } catch (error) {
+    // Uma nova tentativa limpa resolve o "push service error" passageiro.
+    if ((error as { name?: string }).name !== "AbortError") throw error;
+    await (await registration.pushManager.getSubscription())?.unsubscribe().catch(() => {});
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    return registration.pushManager.subscribe(options);
+  }
 }
