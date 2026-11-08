@@ -253,6 +253,31 @@ export function PremiumSidebar({
     );
   }
 
+  const toggleButton = onToggleCollapsed ? (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          onClick={onToggleCollapsed}
+          className={cn(
+            "absolute top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-[#9CA3AF] transition-colors hover:bg-[#F3F4F6] hover:text-[#111827]",
+            collapsed ? "left-1/2 -translate-x-1/2" : "right-3",
+          )}
+          aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
+        >
+          {collapsed ? (
+            <ChevronRight className="h-4 w-4" />
+          ) : (
+            <ChevronLeft className="h-4 w-4" />
+          )}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="right" className="text-xs">
+        {collapsed ? "Expandir menu" : "Recolher menu"}
+      </TooltipContent>
+    </Tooltip>
+  ) : null;
+
   return (
     <TooltipProvider delayDuration={200}>
       <aside
@@ -262,51 +287,25 @@ export function PremiumSidebar({
           !mobile && (collapsed ? "w-[72px]" : "w-[270px]"),
         )}
       >
-        {/* Topo: seta para recolher/expandir */}
+        {/* Recolhido: a seta de expandir fica numa linha própria, acima da loja. */}
+        {collapsed && onToggleCollapsed && (
+          <div className="relative h-14 shrink-0">{toggleButton}</div>
+        )}
+
+        {/* Expandido: a loja fica no topo, com a seta de recolher à direita. */}
         <div
           className={cn(
             "relative shrink-0",
-            "h-14",
+            !collapsed && onToggleCollapsed && "pr-10",
           )}
         >
-          {!collapsed && (
-            <div className="flex h-full items-center px-5 pr-12">
-              <p className="truncate text-[15px] font-bold tracking-tight text-[#111827]">
-                Sorvetes Donda<span className="ml-1.5 text-xs font-medium text-[#9CA3AF]">Admin</span>
-              </p>
-            </div>
-          )}
-          {onToggleCollapsed && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  onClick={onToggleCollapsed}
-                  className={cn(
-                    "absolute top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-[#9CA3AF] transition-colors hover:bg-[#F3F4F6] hover:text-[#111827]",
-                    collapsed ? "left-1/2 -translate-x-1/2" : "right-3",
-                  )}
-                  aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
-                >
-                  {collapsed ? (
-                    <ChevronRight className="h-4 w-4" />
-                  ) : (
-                    <ChevronLeft className="h-4 w-4" />
-                  )}
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right" className="text-xs">
-                {collapsed ? "Expandir menu" : "Recolher menu"}
-              </TooltipContent>
-            </Tooltip>
-          )}
+          <StoreStatusCard
+            canManageStore={canManageStore}
+            canOpenConfig={canOpenConfig}
+            collapsed={collapsed}
+          />
+          {!collapsed && toggleButton}
         </div>
-
-        <StoreStatusCard
-          canManageStore={canManageStore}
-          canOpenConfig={canOpenConfig}
-          collapsed={collapsed}
-        />
 
         <nav
           aria-label="Navegação administrativa"
