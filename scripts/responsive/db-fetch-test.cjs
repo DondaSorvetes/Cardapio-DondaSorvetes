@@ -65,7 +65,11 @@ test("fila cheia falha na hora e fila lenta falha por tempo, sem chamar o banco"
   assert.deepEqual(db.stats(), { active: 0, queued: 0 });
 });
 
-test("requisição travada é abortada no timeout e libera a vaga", async () => {
+test("requisição travada é abortada no timeout e libera a vaga", async (t) => {
+  // AbortSignal.timeout não segura o processo vivo (no Node 22 o teste terminaria
+  // antes do timeout); num servidor de verdade o processo já está ativo.
+  const vivo = setInterval(() => {}, 1_000);
+  t.after(() => clearInterval(vivo));
   const base = fakeFetch();
   const db = createDbFetch(base.fetch, { maxConcurrent: 1, maxQueue: 10, queueTimeoutMs: 5_000, requestTimeoutMs: 30 });
   await assert.rejects(db(REST), { name: "TimeoutError" });
