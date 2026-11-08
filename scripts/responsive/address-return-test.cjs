@@ -3,7 +3,7 @@ const values=new Map(),storage={getItem:key=>values.get(key)??null,setItem:(key,
 const location={href:''};let pushed='';
 const router={push:value=>pushed=value,refresh(){},back(){}};
 function load(file,states,imports){let index=0;const native=createRequire(path.resolve(file)),react={...native('react'),useState:initial=>[states(index++,initial),()=>{}],useEffect(){},useRef:initial=>({current:initial})};
- const mocks={'@/context/AuthContext':{useAuth:()=>({refreshCliente:async()=>{}})},'@/actions/cliente-enderecos':{salvarEnderecoExistente:async()=>({sucesso:true})},'react':react,'next/navigation':{useRouter:()=>router},'sonner':{toast:{success(){},error(){},info(){}}},'@/lib/pagamento':{MEIOS_PAGAMENTO:[{valor:'dinheiro',rotulo:'Dinheiro'}],rotuloPagamento:String},...imports};
+ const mocks={'@/context/AuthContext':{useAuth:()=>({refreshCliente:async()=>{}})},'@/actions/cliente-enderecos':{salvarEnderecoExistente:async()=>({sucesso:true})},'react':react,'next/navigation':{useRouter:()=>router},'sonner':{toast:{success(){},error(){},info(){}}},'@/lib/pagamento':{MEIOS_PAGAMENTO:[{valor:'dinheiro',rotulo:'Dinheiro'}],rotuloPagamento:String},'@/lib/retirada':{formatarAgendamento:()=>null,gerarDiasAgendamento:()=>[]},...imports};
  const req=name=>name === '@/lib/customer-resource' ? { invalidateCustomerResources() {} } : name === '@/lib/cupom-pendente' ? { CUPOM_PENDENTE_KEY: 'cupom-pendente', lerCupomPendente: () => null, guardarCupomPendente() {}, limparCupomPendente() {} } : mocks[name]??(name.startsWith('@/components/ui/')?new Proxy({},{get:(_,key)=>String(key)}):name.startsWith('@/lib/utils/pedido')?{resolveSelectionsFromProduct:()=>[]}:native(name));
  const mod={exports:{}};
  new Function('require','module','exports','window','sessionStorage','fetch',ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2020,esModuleInterop:true}}).outputText)(req,mod,mod.exports,{location},storage,async()=>({ok:true,json:async()=>({})}));
@@ -11,8 +11,11 @@ function load(file,states,imports){let index=0;const native=createRequire(path.r
 }
 function find(node,predicate){if(!node||typeof node!=='object')return null;if(predicate(node))return node;for(const child of [].concat(node.props?.children??[])){const found=Array.isArray(child)?child.map(x=>find(x,predicate)).find(Boolean):find(child,predicate);if(found)return found}return null}
 const product={id:'1',name:'Açaí',price:20};
-// Estados da sacola: 0 = etapa, 6 = CEP digitado.
-const cart=load('src/components/cardapio/ModalSacola.tsx',(i,initial)=>i===0?'entrega':i===6?'15160-000':initial,{
+// Estados da sacola pela ordem dos useState no componente (resiste a estados novos).
+const ordemEstados=[...fs.readFileSync('src/components/cardapio/ModalSacola.tsx','utf8').matchAll(/const \[(\w+),\s*\w+\]\s*=\s*useState/g)].map(m=>m[1]);
+const ETAPA=ordemEstados.indexOf('step'),ENDERECOS=ordemEstados.indexOf('enderecosDisponiveis'),CEP=ordemEstados.indexOf('cep');
+assert.ok(ETAPA>=0&&ENDERECOS>=0&&CEP>=0,'estados da sacola não encontrados');
+const cart=load('src/components/cardapio/ModalSacola.tsx',(i,initial)=>i===ETAPA?'entrega':i===CEP?'15160-000':initial,{
  '@/context/CarrinhoContext':{useCarrinho:()=>({itens:[{uid:'1',produto:product,qty:1,selections:{},total:20}],subtotal:20}),resumoOpcoes:()=>''},
  '@/context/AuthContext':{useAuth:()=>({cliente:{nome:'Cliente de teste',telefone:'17900000000'},session:{user:{id:'test'}},loading:false})},
  '@/lib/enderecos-cliente':{customerAddresses:()=>[]},
@@ -28,7 +31,7 @@ values.clear();location.href='';find(tree,node=>node.type==='form').props.onSubm
 assert.equal(location.href,'/perfil/enderecos/novo?cep=15160000');assert.equal(storage.getItem('reopenCart'),'true');
 // CEP de um endereço já salvo: usa o endereço salvo e não abre o cadastro.
 const salvo={id:'a1',apelido:'Casa',logradouro:'Rua Teste',numero:'10',bairro:'Centro',cidade:'Poloni',estado:'SP',cep:'15160-000',principal:true};
-const cartSalvo=load('src/components/cardapio/ModalSacola.tsx',(i,initial)=>i===0?'entrega':i===2?[salvo]:i===6?'15160000':initial,{
+const cartSalvo=load('src/components/cardapio/ModalSacola.tsx',(i,initial)=>i===ETAPA?'entrega':i===ENDERECOS?[salvo]:i===CEP?'15160000':initial,{
  '@/context/CarrinhoContext':{useCarrinho:()=>({itens:[{uid:'1',produto:product,qty:1,selections:{},total:20}],subtotal:20})},
  '@/context/AuthContext':{useAuth:()=>({cliente:{nome:'Cliente de teste',telefone:'17900000000'},session:{user:{id:'test'}},loading:false})},
  '@/lib/enderecos-cliente':{customerAddresses:()=>[salvo]},

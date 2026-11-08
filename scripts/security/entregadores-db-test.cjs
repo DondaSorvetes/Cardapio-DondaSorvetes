@@ -7,6 +7,7 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const { PGlite } = require("@electric-sql/pglite");
+const { aplicarRenomeacaoDonda } = require("./migrations-helper.cjs");
 
 const JOAO = "00000000-0000-4000-8000-00000000000a";
 const PEDRO = "00000000-0000-4000-8000-00000000000b";
@@ -55,6 +56,7 @@ async function setup() {
   const db = new PGlite();
   await db.exec(BASE);
   await db.exec(fs.readFileSync("supabase/migrations/0019_entregadores.sql", "utf8"));
+  await aplicarRenomeacaoDonda(db);
   // Servidor do painel (service_role) cadastra os entregadores.
   await db.exec(`INSERT INTO public.entregadores (id, nome, email) VALUES
     ('${JOAO}','João','JOAO@x.com '),('${PEDRO}','Pedro','pedro@x.com'),('${CARLOS}','Carlos','carlos@x.com');

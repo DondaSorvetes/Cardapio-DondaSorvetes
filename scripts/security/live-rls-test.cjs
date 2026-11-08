@@ -2,6 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const { PGlite } = require('@electric-sql/pglite');
+const { aplicarRenomeacaoDonda } = require('./migrations-helper.cjs');
 test('actual supplied policies: self-promotion and broad access are closed; rollback restores exact policies', async () => {
  const db = new PGlite();
  const A='00000000-0000-4000-8000-000000000001', B='00000000-0000-4000-8000-000000000002', STAFF='00000000-0000-4000-8000-000000000003', ADMIN='00000000-0000-4000-8000-000000000004';
@@ -44,6 +45,7 @@ test('actual supplied policies: self-promotion and broad access are closed; roll
  await db.exec('CREATE POLICY unexpected_policy ON pedidos FOR SELECT TO authenticated USING(false)');
  await assert.rejects(()=>db.exec(fs.readFileSync('supabase/migrations/0018_live_policy_hardening.sql','utf8')),/Policies changed/);await db.exec('ROLLBACK');await db.exec('DROP POLICY unexpected_policy ON pedidos');
  await db.exec(fs.readFileSync('supabase/migrations/0018_live_policy_hardening.sql','utf8'));
+ await aplicarRenomeacaoDonda(db);
  await identity('anon');for(const table of ['clientes','pedidos','perfis','audit_logs'])assert.equal((await db.query('SELECT * FROM '+table)).rows.length,0);
  await identity('authenticated',A);assert.equal((await db.query('SELECT * FROM clientes')).rows.length,1);assert.equal((await db.query('SELECT * FROM pedidos')).rows.length,0);assert.equal((await db.query('SELECT * FROM audit_logs')).rows.length,0);await assert.rejects(()=>db.query('INSERT INTO perfis(id,role) VALUES ($1,$2)',[A,'admin']),/row-level security/);await assert.rejects(()=>db.query('INSERT INTO pedidos(cliente_id,total) VALUES ($1,1)',[B]),/row-level security/);
  await identity('authenticated',B);assert.equal((await db.query('SELECT * FROM clientes')).rows[0].nome,'B');

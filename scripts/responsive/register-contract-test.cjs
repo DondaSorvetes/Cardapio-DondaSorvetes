@@ -16,8 +16,9 @@ new Function('require','module','exports',ts.transpileModule(fs.readFileSync(fil
 const send=body=>moduleObject.exports.POST({json:async()=>body},{ip:'test'});
 (async()=>{
  const base={nome:'Cliente de teste',telefone:'17900000000'};
- let result=await send(base);assert.equal(result.status,201);assert.equal(inserted.endereco,null);assert.deepEqual(JSON.parse(inserted.enderecos_adicionais),[]);
- result=await send({...base,endereco:null});assert.equal(result.status,201);assert.equal(inserted.endereco,null);
+ // Sem endereço a rota grava string vazia: a coluna clientes.endereco é NOT NULL em produção.
+ let result=await send(base);assert.equal(result.status,201);assert.equal(inserted.endereco,'');assert.deepEqual(JSON.parse(inserted.enderecos_adicionais),[]);
+ result=await send({...base,endereco:null});assert.equal(result.status,201);assert.equal(inserted.endereco,'');
  const address='Rua Teste, 10 - Centro, Poloni/SP - CEP: 15160000';result=await send({...base,endereco:address});assert.equal(result.status,201);assert.equal(inserted.endereco,address);assert.equal(JSON.parse(inserted.enderecos_adicionais).length,1);
  for(const body of [{...base,telefone:'123'},{...base,nome:'A'},{...base,endereco:'x'}])assert.equal((await send(body)).status,400);
  lookup=true;inserted=null;assert.equal((await send(base)).status,409);assert.equal(inserted,null);
