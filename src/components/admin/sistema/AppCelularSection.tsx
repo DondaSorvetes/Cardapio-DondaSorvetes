@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useInstallState } from "@/components/admin/pwa/AdminPwa";
 import { promptInstall } from "@/lib/pwa/install";
+import { PushCard } from "@/components/admin/pwa/PushToggle";
 
 
 function Steps({ items }: { items: React.ReactNode[] }) {
@@ -86,6 +87,8 @@ export function AppCelularSection() {
         </div>
         {message && <p className="border-t border-[#F3F4F6] px-4 py-3 text-sm text-[#374151] sm:px-5">{message}</p>}
       </div>
+
+      <PushCard />
 
       {!inApp && (
         <div className="grid gap-4 lg:grid-cols-2">

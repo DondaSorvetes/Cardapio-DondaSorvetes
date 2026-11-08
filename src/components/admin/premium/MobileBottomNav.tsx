@@ -3,10 +3,36 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu } from "lucide-react";
+import {
+  ChartLineUp,
+  GearSix,
+  House,
+  IceCream,
+  List,
+  Receipt,
+  Storefront,
+  Ticket,
+  UsersThree,
+  type Icon as PhosphorIcon,
+} from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import type { AdminPageAccess } from "@/lib/security/rbac";
 import { menuItems, pathIsActive, type MenuItem } from "./PremiumSidebar";
+
+/**
+ * Ícones próprios da barra (Phosphor): contorno quando inativo e preenchido
+ * quando ativo, como nos apps nativos. A sidebar continua com os seus.
+ */
+const ICONS: Record<string, PhosphorIcon> = {
+  "/admin": House,
+  "/admin/pedidos": Receipt,
+  "/admin/produtos": IceCream,
+  "/admin/clientes": UsersThree,
+  "/admin/estabelecimento": Storefront,
+  "/admin/relatorios": ChartLineUp,
+  "/admin/cupons": Ticket,
+  "/admin/configuracoes": GearSix,
+};
 
 /** Ordem de preferência dos atalhos; entram os 4 primeiros que a pessoa pode acessar. */
 const PRIORITY = ["/admin", "/admin/pedidos", "/admin/produtos", "/admin/clientes", "/admin/estabelecimento", "/admin/relatorios", "/admin/cupons", "/admin/configuracoes"];
@@ -64,8 +90,14 @@ export function MobileBottomNav({
         ? "bg-[#C8285F]/15 font-semibold text-[#C8285F] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5)]"
         : "font-medium text-[#1F1A26]/70 hover:text-[#1F1A26] active:bg-white/40",
     );
-  const iconClass = (active: boolean) =>
-    cn("h-[22px] w-[22px] transition-transform duration-200", active && "scale-105");
+  const icon = (Icon: PhosphorIcon, active: boolean) => (
+    <Icon
+      aria-hidden="true"
+      size={23}
+      weight={active ? "fill" : "regular"}
+      className={cn("shrink-0 transition-transform duration-200", active && "scale-105")}
+    />
+  );
 
   return (
     <nav
@@ -90,7 +122,7 @@ export function MobileBottomNav({
       >
         {shortcuts.map((item) => {
           const active = pathIsActive(pathname, item.href);
-          const Icon = item.icon;
+          const Icon = ICONS[item.href];
           return (
             <li key={item.href} className="relative min-w-0">
               <Link
@@ -98,7 +130,7 @@ export function MobileBottomNav({
                 aria-current={active ? "page" : undefined}
                 className={itemClass(active)}
               >
-                <Icon className={iconClass(active)} />
+                {Icon ? icon(Icon, active) : <item.icon className="h-[22px] w-[22px]" />}
                 <span className="max-w-full truncate">{SHORT[item.href] ?? item.label}</span>
               </Link>
             </li>
@@ -112,7 +144,7 @@ export function MobileBottomNav({
             aria-haspopup="dialog"
             className={itemClass(menuActive)}
           >
-            <Menu className={iconClass(menuActive)} />
+            {icon(List, menuActive)}
             <span className="max-w-full truncate">Menu</span>
           </button>
         </li>

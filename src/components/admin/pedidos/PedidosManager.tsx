@@ -57,6 +57,7 @@ import {
 } from "./kanban-columns";
 import { shortOrderId } from "./order-status";
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { PushBanner } from "@/components/admin/pwa/PushToggle";
 
 export const SOUND_KEY = "donda-orders-sound";
 const CONCLUIDOS_KEY = "donda-orders-concluidos-abertos";
@@ -508,6 +509,8 @@ export function PedidosManager({
         canManageStore={canManageStore}
         totalCount={filtered.length}
       />
+
+      <PushBanner />
 
       {entregadores && !entregadores.selecionado && !avisoEntregadorFechado && (
         <div role="status" className="flex items-center gap-2 border-b border-[#F1E7C8] bg-[#FFFBEB] py-1.5 pl-4 pr-2 text-xs text-[#92400E]">
