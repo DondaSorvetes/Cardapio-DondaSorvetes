@@ -1,22 +1,16 @@
 import { catalogFetch } from "@/lib/catalog-fetch.server";
 import { createClient } from "@supabase/supabase-js";
-import { createDbFetch, readDbFetchOptions } from "./db-fetch";
 import type { Database } from "./types";
 
 const BUCKET = "DondaSorvetes";
 const SIGNED_URL_EXPIRY = 60 * 60; // 1 hora em segundos
 
-type ServiceRoleClient = ReturnType<typeof buildServiceRoleClient>;
-
 /**
- * Um limitador por instância, compartilhado por todos os clientes service role:
- * o total de requisições simultâneas ao banco desta instância fica limitado.
+ * Cliente Supabase com Service Role (chave secreta)
+ * Use para operações que precisam de acesso total ao banco
+ * NÃO use para verificar sessões de usuário
  */
-let dbFetch: typeof fetch | undefined;
-const sharedDbFetch = () =>
-  (dbFetch ??= createDbFetch(catalogFetch, readDbFetchOptions()));
-
-function buildServiceRoleClient() {
+export function createServiceRoleClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -42,37 +36,9 @@ function buildServiceRoleClient() {
   }
 
   return createClient<Database>(url, keyToUse, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-    },
-    global: { fetch: sharedDbFetch() },
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { fetch: catalogFetch },
   });
-}
-
-let sharedClient: ServiceRoleClient | undefined;
-
-/**
- * Cliente Supabase com Service Role (chave secreta), reaproveitado por todas as
- * requisições desta instância serverless em vez de recriado a cada chamada.
- * Ele não guarda sessão de usuário (persistSession: false); as conexões HTTP
- * com o Supabase ficam em keep-alive no fetch do Node e fecham sozinhas quando
- * ociosas. Use para operações que precisam de acesso total ao banco.
- * NÃO use para verificar sessões de usuário nem para login (use os clientes
- * por cookie em "@/integrations/supabase/server").
- */
-export function createServiceRoleClient(): ServiceRoleClient {
-  return (sharedClient ??= buildServiceRoleClient());
-}
-
-/**
- * Cliente service role só seu, para quem abre e fecha conexão Realtime
- * (websocket) por conta própria: desconectar não afeta o cliente compartilhado.
- * As requisições ao banco continuam passando pelo mesmo limite da instância.
- */
-export function createDedicatedServiceRoleClient(): ServiceRoleClient {
-  return buildServiceRoleClient();
 }
 
 // Backwards compatibility for existing customer-facing code
