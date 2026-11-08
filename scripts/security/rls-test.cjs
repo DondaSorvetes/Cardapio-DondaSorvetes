@@ -1,5 +1,6 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs');
 const {PGlite}=require('@electric-sql/pglite');
+const {aplicarRenomeacaoDonda}=require('./migrations-helper.cjs');
 test('PostgreSQL policies isolate anonymous/nonstaff users and preserve staff reads; rollback restores the snapshot',async()=>{
  const db=new PGlite();
  const A='00000000-0000-4000-8000-000000000001',B='00000000-0000-4000-8000-000000000002',ATT='00000000-0000-4000-8000-000000000003',MAN='00000000-0000-4000-8000-000000000004',ADMIN='00000000-0000-4000-8000-000000000005';
@@ -24,6 +25,7 @@ test('PostgreSQL policies isolate anonymous/nonstaff users and preserve staff re
  CREATE POLICY audit_logs_select_authenticated ON audit_logs FOR SELECT TO authenticated USING(true);`);
  await db.exec(fs.readFileSync('supabase/migrations/0016_checkout_session_controls.sql','utf8'));
  await db.exec(fs.readFileSync('supabase/migrations/0017_staff_scoped_rls.sql','utf8'));
+ await aplicarRenomeacaoDonda(db);
  const identity=async(role,id='')=>{await db.exec('RESET ROLE');await db.query("SELECT set_config('request.jwt.claim.sub',$1,false)",[id]);await db.exec('SET ROLE '+role);};
  await identity('anon');for(const table of ['clientes','pedidos','audit_logs'])assert.equal((await db.query('SELECT * FROM '+table)).rows.length,0);
  await identity('authenticated',A);assert.equal((await db.query('SELECT * FROM clientes')).rows.length,1);assert.equal((await db.query('SELECT * FROM pedidos')).rows.length,0);assert.equal((await db.query('SELECT * FROM audit_logs')).rows.length,0);

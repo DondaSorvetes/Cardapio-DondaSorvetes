@@ -12,6 +12,7 @@ dist
 # Env files — NUNCA commitar credenciais
 .env
 .env.*
+!.env.example
 
 # Logs
 *.log
