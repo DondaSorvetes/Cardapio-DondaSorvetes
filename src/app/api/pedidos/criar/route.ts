@@ -1,6 +1,7 @@
-import { NextRequest } from "next/server";
+import { after, NextRequest } from "next/server";
 import { z } from "zod";
 import { obterSessao } from "@/lib/auth";
+import { notifyNewOrder } from "@/lib/push/pedido-push.server";
 import { createServerClient } from "@/integrations/supabase/client.server";
 import { withApiGuard } from "@/lib/security/with-api-guard";
 import {
@@ -511,6 +512,18 @@ export const POST = withApiGuard(
         result: "ok",
         meta: { pedidoId: pedido.id, total: pedido.total },
       });
+
+      // Avisa o celular da equipe depois de responder ao cliente (não atrasa o checkout).
+      const pedidoId = pedido.id;
+      const pedidoTotal = pedido.total;
+      after(() =>
+        notifyNewOrder({
+          id: pedidoId,
+          total: pedidoTotal,
+          tipo_entrega: data.tipo_entrega,
+          agendado_para: agendadoPara,
+        }),
+      );
 
       return apiOk(
         {

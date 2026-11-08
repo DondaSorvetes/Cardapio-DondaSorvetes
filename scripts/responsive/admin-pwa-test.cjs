@@ -86,7 +86,7 @@ test("bottom bar shows up to 4 shortcuts the user can access, in priority order"
   const stub = { menuItems: items, pathIsActive: () => false };
   const nav = load("src/components/admin/premium/MobileBottomNav.tsx", {
     "./PremiumSidebar": stub, "next/link": () => null, "next/navigation": { usePathname: () => "/admin" },
-    "lucide-react": { Menu: () => null }, "@/lib/utils": { cn: (...c) => c.filter(Boolean).join(" ") },
+    "@phosphor-icons/react": new Proxy({}, { get: () => () => null }), "@/lib/utils": { cn: (...c) => c.filter(Boolean).join(" ") },
   });
   const hrefs = (acessos) => nav.pickShortcuts(acessos).map((i) => i.href);
   assert.deepEqual(hrefs(items.map((i) => i.access)), ["/admin", "/admin/pedidos", "/admin/produtos", "/admin/clientes"]);

@@ -57,6 +57,8 @@ const { validarCupom } = load('src/lib/cupons.ts', {
     return query;
   } };
   const { POST } = load('src/app/api/pedidos/criar/route.ts', {
+    'next/server': { after() {} },
+    '@/lib/push/pedido-push.server': { notifyNewOrder: async () => {} },
     '@/lib/auth': { obterSessao: async () => ({ id: 'test' }) },
     '@/integrations/supabase/client.server': { createServerClient: () => db },
     '@/lib/utils/pedido': { enrichPedidoItens: itens => itens },
