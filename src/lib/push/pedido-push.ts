@@ -79,6 +79,47 @@ export function buildNewOrderPush(pedido: {
   };
 }
 
+export type VapidConfig = {
+  publicKey: string;
+  privateKey: string;
+  subject: string;
+};
+
+/** Tira espaços e aspas que costumam vir junto ao colar o valor no painel da Vercel. */
+const clean = (value: string | undefined) =>
+  value?.trim().replace(/^(["'])(.*)\1$/, "$2").trim() || undefined;
+
+/**
+ * Lê as chaves VAPID em tempo de execução e diz o que está errado (só nomes de
+ * variáveis, nunca valores). Aceita VAPID_PUBLIC_KEY como nome alternativo.
+ */
+export function readVapidConfig(env: Record<string, string | undefined>): {
+  config: VapidConfig | null;
+  problems: string[];
+} {
+  const publicKey = clean(env.NEXT_PUBLIC_VAPID_PUBLIC_KEY) ?? clean(env.VAPID_PUBLIC_KEY);
+  const privateKey = clean(env.VAPID_PRIVATE_KEY);
+  const subject = clean(env.VAPID_SUBJECT);
+  const problems: string[] = [];
+  if (!publicKey) problems.push("NEXT_PUBLIC_VAPID_PUBLIC_KEY não encontrada");
+  // Pública: ponto P-256 sem compressão (65 bytes → 87 caracteres base64url).
+  else if (!/^[A-Za-z0-9_-]{86,88}={0,2}$/.test(publicKey))
+    problems.push("NEXT_PUBLIC_VAPID_PUBLIC_KEY não parece a chave pública (Public Key)");
+  if (!privateKey) problems.push("VAPID_PRIVATE_KEY não encontrada");
+  // Privada: 32 bytes → 43 caracteres base64url.
+  else if (!/^[A-Za-z0-9_-]{42,44}={0,1}$/.test(privateKey))
+    problems.push("VAPID_PRIVATE_KEY não parece a chave privada (Private Key)");
+  if (publicKey && privateKey && publicKey === privateKey)
+    problems.push("as duas chaves estão iguais");
+  if (!subject) problems.push("VAPID_SUBJECT não encontrada");
+  else if (!/^(mailto:\S+@\S+|https:\/\/\S+)$/.test(subject))
+    problems.push("VAPID_SUBJECT precisa começar com mailto: (ex.: mailto:contato@loja.com)");
+  return {
+    config: problems.length ? null : { publicKey: publicKey!, privateKey: privateKey!, subject: subject! },
+    problems,
+  };
+}
+
 export type PushDeps = {
   /** Inscrições candidatas (todas, ou só as de um usuário). */
   listSubscriptions: () => Promise<PushSubscriptionRow[]>;

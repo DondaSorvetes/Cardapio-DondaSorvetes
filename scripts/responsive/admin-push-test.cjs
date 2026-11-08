@@ -157,3 +157,29 @@ test("chave pública VAPID vira os bytes que o navegador espera", () => {
   const key = Buffer.from(bytes).toString("base64url");
   assert.deepEqual([...urlBase64ToUint8Array(key)], [...bytes]);
 });
+
+test("chaves VAPID lidas em tempo de execução: aceita colagem com aspas/espaços e aponta o que falta", () => {
+  const { publicKey, privateKey } = require("web-push").generateVAPIDKeys(); // descartáveis, só para o teste
+  const ok = push.readVapidConfig({
+    NEXT_PUBLIC_VAPID_PUBLIC_KEY: ` "${publicKey}" `,
+    VAPID_PRIVATE_KEY: `${privateKey}\n`,
+    VAPID_SUBJECT: "'mailto:contato@loja.com'",
+  });
+  assert.deepEqual(ok.problems, []);
+  assert.deepEqual(ok.config, { publicKey, privateKey, subject: "mailto:contato@loja.com" });
+  assert.equal(push.readVapidConfig({ VAPID_PUBLIC_KEY: publicKey, VAPID_PRIVATE_KEY: privateKey, VAPID_SUBJECT: "https://loja.com" }).config?.publicKey, publicKey, "nome alternativo");
+
+  assert.deepEqual(push.readVapidConfig({}).problems, [
+    "NEXT_PUBLIC_VAPID_PUBLIC_KEY não encontrada",
+    "VAPID_PRIVATE_KEY não encontrada",
+    "VAPID_SUBJECT não encontrada",
+  ]);
+  const trocadas = push.readVapidConfig({ NEXT_PUBLIC_VAPID_PUBLIC_KEY: privateKey, VAPID_PRIVATE_KEY: publicKey, VAPID_SUBJECT: "contato@loja.com" });
+  assert.equal(trocadas.config, null);
+  assert.deepEqual(trocadas.problems, [
+    "NEXT_PUBLIC_VAPID_PUBLIC_KEY não parece a chave pública (Public Key)",
+    "VAPID_PRIVATE_KEY não parece a chave privada (Private Key)",
+    "VAPID_SUBJECT precisa começar com mailto: (ex.: mailto:contato@loja.com)",
+  ]);
+  for (const problem of trocadas.problems) assert.ok(!problem.includes(publicKey) && !problem.includes(privateKey), "nunca expõe valores");
+});
